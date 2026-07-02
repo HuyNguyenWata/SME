@@ -1,0 +1,225 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  password   String
+  name       String
+  role       String
+  categoryId Int?     @map("category_id")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  category          Category?          @relation(fields: [categoryId], references: [id])
+  products          Product[]
+  rawDocs           RawDoc[]
+  conversations     Conversation[]
+  generatedContents GeneratedContent[]
+
+  @@map("User")
+}
+
+model Category {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  users      User[]
+  rssSources RSSSource[]
+
+  @@map("Category")
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  quantity    Int
+  unit        String
+  sku         String
+  status      String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user               User               @relation(fields: [userId], references: [id])
+  images             ProductImage[]
+  comments           ProductComment[]
+  inventoryHistories InventoryHistory[]
+
+  @@map("Product")
+}
+
+model ProductImage {
+  id          Int     @id @default(autoincrement())
+  productId   Int     @map("product_id")
+  url         String
+  isThumbnail Boolean @default(false) @map("is_thumbnail")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("ProductImage")
+}
+
+model ProductComment {
+  id        Int      @id @default(autoincrement())
+  productId Int      @map("product_id")
+  userName  String   @map("user_name")
+  content   String
+  rating    Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("ProductComment")
+}
+
+model RawDoc {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  source    String
+  title     String
+  content   String
+  status    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user              User               @relation(fields: [userId], references: [id])
+  crawlDocs         CrawlDoc[]
+  generatedContents GeneratedContent[]
+
+  @@map("RawDoc")
+}
+
+model CrawlDoc {
+  id        Int      @id @default(autoincrement())
+  rawDocId  Int      @map("raw_doc_id")
+  url       String
+  title     String
+  content   String
+  metadata  Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  rawDoc RawDoc @relation(fields: [rawDocId], references: [id])
+
+  @@map("CrawlDoc")
+}
+
+model Conversation {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  title     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User   @relation(fields: [userId], references: [id])
+  chats Chat[]
+
+  @@map("Conversation")
+}
+
+model Chat {
+  id             Int      @id @default(autoincrement())
+  conversationId Int      @map("conversation_id")
+  role           String
+  message        String
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@map("Chat")
+}
+
+model RSSSource {
+  id         Int     @id @default(autoincrement())
+  categoryId Int     @map("category_id")
+  name       String
+  url        String
+  isActive   Boolean @default(true) @map("is_active")
+
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@map("RSSSource")
+}
+
+model GeneratedContent {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  sourceDocId Int      @map("source_doc_id")
+  title       String
+  content     String
+  status      String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user      User   @relation(fields: [userId], references: [id])
+  sourceDoc RawDoc @relation(fields: [sourceDocId], references: [id])
+
+  socialPosts SocialPost[]
+
+  @@map("GeneratedContent")
+}
+
+model SocialPost {
+  id                 Int       @id @default(autoincrement())
+  generatedContentId Int       @map("generated_content_id")
+  platform           String
+  postId             String?   @map("post_id")
+  publishedAt        DateTime? @map("published_at")
+  status             String
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  generatedContent GeneratedContent @relation(fields: [generatedContentId], references: [id])
+  comments         SocialComment[]
+
+  @@map("SocialPost")
+}
+
+model SocialComment {
+  id           Int      @id @default(autoincrement())
+  socialPostId Int      @map("social_post_id")
+  author       String
+  content      String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  socialPost SocialPost @relation(fields: [socialPostId], references: [id])
+
+  @@map("SocialComment")
+}
+
+model InventoryHistory {
+  id             Int      @id @default(autoincrement())
+  productId      Int      @map("product_id")
+  type           String
+  changeQuantity Int      @map("change_quantity")
+  reason         String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("InventoryHistory")
+}
+
+model PromptTemplate {
+  id     Int    @id @default(autoincrement())
+  name   String
+  prompt String
+  type   String
+
+  @@map("PromptTemplate")
+}
+
+model Setting {
+  key         String @id
+  value       String
+  description String?
+
+  @@map("Setting")
+}

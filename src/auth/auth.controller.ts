@@ -1,0 +1,71 @@
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import type { AuthUser } from '../common/types/auth-user.type';
+import { AuthService } from './auth.service';
+import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RegisterDto } from './dto/register.dto';
+
+@ApiTags('Auth')
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly auth: AuthService) {}
+
+  @Post('register')
+  @ApiOperation({ summary: 'Register a user' })
+  @ApiBody({ type: RegisterDto })
+  @ApiResponse({ status: 201, description: 'JWT token pair and user profile' })
+  register(@Body() dto: RegisterDto) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return this.auth.register(dto);
+  }
+
+  @Post('login')
+  @ApiOperation({ summary: 'Login with email and password' })
+  login(@Body() dto: LoginDto) {
+    return this.auth.login(dto);
+  }
+
+  @Post('refresh')
+  @ApiOperation({ summary: 'Refresh JWT token pair' })
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.auth.refresh(dto.refreshToken);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout current user' })
+  logout() {
+    return this.auth.logout();
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current authenticated user' })
+  me(@CurrentUser() user: AuthUser) {
+    return this.auth.currentUser(user);
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Start password reset flow' })
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.auth.forgotPassword(dto.email);
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Complete password reset flow' })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword();
+  }
+}
