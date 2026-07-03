@@ -75,6 +75,11 @@ export class ChatController {
     });
   }
 
+  @Get('conversations/:id')
+  conversation(@Request() req: AuthRequest, @Param('id') id: string) {
+    return this.chat.conversation(parseId(id), req.user.id);
+  }
+
   // =========================
   // DELETE CONVERSATION
   // =========================

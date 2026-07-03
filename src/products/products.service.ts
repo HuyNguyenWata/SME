@@ -3,8 +3,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsRepository } from './products.repository';
-import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
-
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 @Injectable()
 export class ProductsService {
   constructor(

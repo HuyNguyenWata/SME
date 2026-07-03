@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class CreateConversationDto {
-  @ApiProperty()
-  @IsInt()
-  userId!: number;
-
-  @ApiProperty()
+  @ApiProperty({
+    example: 'New Chat',
+    required: false,
+  })
+  @IsOptional()
   @IsString()
-  title!: string;
+  title?: string;
 }
