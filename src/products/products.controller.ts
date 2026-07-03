@@ -71,7 +71,6 @@ export class ProductsController {
   //@UseGuards(JwtAuthGuard, RolesGuard)
   //@Roles('ADMIN')
   // @ApiBearerAuth()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   @UseInterceptors(FilesInterceptor('images'))
   @ApiOperation({ summary: 'Update product' })
   update(

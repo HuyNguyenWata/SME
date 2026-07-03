@@ -10,11 +10,12 @@ import { UserModule } from './user/user.module';
 import { ProductsModule } from './products/products.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { InventoryModule } from './inventory/inventory.module';
-import { DocumentsModule } from './documents/documents.module';
 import { ChatModule } from './chat/chat.module';
 import { ContentModule } from './content/content.module';
 import { SettingsModule } from './settings/settings.module';
 import { PromptsModule } from './prompts/prompts.module';
+import { SocialPlatformModule } from './social-platform/social-platform.module';
+import { AiJobModule } from './ai-job/ai-job.module';
 
 @Module({
   imports: [
@@ -27,11 +28,12 @@ import { PromptsModule } from './prompts/prompts.module';
     ProductsModule,
     CatalogModule,
     InventoryModule,
-    DocumentsModule,
     ChatModule,
     ContentModule,
     SettingsModule,
     PromptsModule,
+    SocialPlatformModule,
+    AiJobModule,
   ],
   controllers: [AppController],
   providers: [AppService],
