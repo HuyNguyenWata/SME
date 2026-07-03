@@ -94,6 +94,15 @@ export class ProductsController {
     return this.products.removeMany(dto.ids);
   }
 
+  @Post(':id/sync')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'USER')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Manually trigger AI Core sync for a product' })
+  syncProduct(@Param('id') id: string) {
+    return this.products.syncProduct(parseId(id));
+  }
+
   @Post('webhook/ai-sync')
   @ApiOperation({ summary: 'Webhook to receive AI vector sync status' })
   async aiSyncWebhook(

@@ -15,16 +15,37 @@ export class ProductsService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  private triggerAiCoreSync(product: any) {
+  private triggerAiCoreSync(
+    product: Record<string, unknown>,
+    changedFields?: string[],
+  ) {
     const aiCoreUrl = process.env.AI_CORE_URL || 'http://localhost:8080';
+    const payload = changedFields
+      ? { product, changed_fields: changedFields }
+      : { product };
     try {
       fetch(`${aiCoreUrl}/api/v1/products/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(product),
+        body: JSON.stringify(payload),
       }).catch((err) => console.error('Failed to trigger AI Core sync:', err));
     } catch (error) {
       console.error('Error initiating AI Core sync:', error);
+    }
+  }
+
+  private triggerAiCoreDelete(productIds: number[]) {
+    const aiCoreUrl = process.env.AI_CORE_URL || 'http://localhost:8080';
+    try {
+      fetch(`${aiCoreUrl}/api/v1/products/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_ids: productIds }),
+      }).catch((err) =>
+        console.error('Failed to trigger AI Core delete:', err),
+      );
+    } catch (error) {
+      console.error('Error initiating AI Core delete:', error);
     }
   }
 
@@ -42,6 +63,13 @@ export class ProductsService {
     const product = await this.products.findById(id);
     if (!product) throw new NotFoundException('Product not found');
     return this.toResponse(product);
+  }
+
+  async syncProduct(id: number) {
+    const product = await this.findOne(id);
+    await this.updateEmbeddingStatus(id, ProductEmbeddingStatus.PENDING);
+    this.triggerAiCoreSync(product);
+    return { success: true, message: 'Sync triggered' };
   }
 
   async create(
@@ -86,7 +114,7 @@ export class ProductsService {
       ...dto,
       embeddingStatus: ProductEmbeddingStatus.PENDING,
     };
-    await this.findOne(id);
+    const oldProduct = await this.findOne(id);
     const imageUrls = images?.length
       ? await Promise.all(
           images.map(async (file, index) => {
@@ -104,8 +132,23 @@ export class ProductsService {
     const updated = await this.products.update(id, internalDto, imageUrls);
     const response = this.toResponse(updated!);
 
+    // Calculate changed fields
+    const changedFields: string[] = [];
+    if (dto.name && dto.name !== oldProduct.name) changedFields.push('name');
+    if (
+      dto.description !== undefined &&
+      dto.description !== oldProduct.description
+    )
+      changedFields.push('description');
+    if (
+      dto.specifications !== undefined &&
+      JSON.stringify(dto.specifications) !==
+        JSON.stringify(oldProduct.specifications)
+    )
+      changedFields.push('specifications');
+
     // Trigger vector db sync asynchronously
-    this.triggerAiCoreSync(response);
+    this.triggerAiCoreSync(response, changedFields);
 
     return response;
   }
@@ -116,6 +159,7 @@ export class ProductsService {
 
   async removeMany(ids: number[]) {
     await this.products.removeMany(ids);
+    this.triggerAiCoreDelete(ids);
     return { ids };
   }
 
