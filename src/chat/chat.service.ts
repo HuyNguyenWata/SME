@@ -10,7 +10,11 @@ export class ChatService {
   conversations(userId?: number) {
     return this.prisma.conversation.findMany({
       where: userId ? { userId } : undefined,
-      include: { chats: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        chats: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -23,6 +27,7 @@ export class ChatService {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
     });
+
     if (!conversation) throw new NotFoundException('Conversation not found');
 
     const related = await this.prisma.product.findMany({
@@ -35,18 +40,19 @@ export class ChatService {
       },
       take: 4,
     });
+
     const answer =
       related.length > 0
-        ? `I found ${related.length} matching product(s): ${related
-            .map((product) => product.name)
+        ? `I found ${related.length} product(s): ${related
+            .map((p) => p.name)
             .join(', ')}.`
-        : 'I could not find a direct product match. Try a product name, SKU, or inventory keyword.';
+        : `I couldn't find matching products.`;
 
-    const [, assistant] = await this.prisma.$transaction([
+    const [userMsg, assistantMsg] = await this.prisma.$transaction([
       this.prisma.chat.create({
         data: {
           conversationId,
-          role: 'USER',
+          role: 'user', // ✅ FIX lowercase
           message: dto.message,
           metadata: {},
         },
@@ -54,14 +60,24 @@ export class ChatService {
       this.prisma.chat.create({
         data: {
           conversationId,
-          role: 'ASSISTANT',
+          role: 'assistant', // ✅ FIX lowercase
           message: answer,
-          metadata: { productIds: related.map((product) => product.id) },
+          metadata: {
+            products: related, // ✅ FE cần object luôn
+          },
         },
       }),
     ]);
 
-    return { assistant, relatedProducts: related };
+    return {
+      conversationId,
+      message: {
+        id: assistantMsg.id,
+        role: assistantMsg.role,
+        content: assistantMsg.message,
+        products: related,
+      },
+    };
   }
 
   async removeConversation(id: number) {
