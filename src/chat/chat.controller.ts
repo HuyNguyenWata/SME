@@ -5,20 +5,26 @@ import {
   Get,
   Param,
   Post,
-  Query,
+  Request,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiQuery,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { parseId } from '../common/utils/id.util';
 import { ChatService } from './chat.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { Request as ExpressRequest } from 'express';
+
+// =========================
+// TYPE REQUEST (FIX ESLINT)
+// =========================
+interface AuthRequest extends ExpressRequest {
+  user: {
+    id: number;
+    email: string;
+  };
+}
 
 @ApiTags('Chat')
 @ApiBearerAuth()
@@ -27,28 +33,53 @@ import { SendMessageDto } from './dto/send-message.dto';
 export class ChatController {
   constructor(private readonly chat: ChatService) {}
 
+  // =========================
+  // GET CONVERSATIONS
+  // =========================
   @Get('conversations')
-  @ApiQuery({ name: 'userId', required: false })
-  conversations(@Query('userId') userId?: string) {
-    return this.chat.conversations(userId ? parseId(userId) : undefined);
+  @ApiOperation({ summary: 'Get user conversations' })
+  conversations(@Request() req: AuthRequest) {
+    return this.chat.conversations(req.user.id);
   }
 
+  // =========================
+  // CREATE CONVERSATION
+  // =========================
   @Post('conversations')
   @ApiOperation({ summary: 'Create conversation' })
-  createConversation(@Body() dto: CreateConversationDto) {
-    return this.chat.createConversation(dto);
+  createConversation(
+    @Request() req: AuthRequest,
+    @Body() dto: CreateConversationDto,
+  ) {
+    return this.chat.createConversation({
+      ...dto,
+      userId: req.user.id,
+    });
   }
 
+  // =========================
+  // SEND MESSAGE
+  // =========================
   @Post('conversations/:id/messages')
   @ApiOperation({
     summary: 'Send chat message and generate assistant response',
   })
-  send(@Param('id') id: string, @Body() dto: SendMessageDto) {
-    return this.chat.send(parseId(id), dto);
+  send(
+    @Request() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() dto: SendMessageDto,
+  ) {
+    return this.chat.send(parseId(id), {
+      ...dto,
+      userId: req.user.id,
+    });
   }
 
+  // =========================
+  // DELETE CONVERSATION
+  // =========================
   @Delete('conversations/:id')
-  removeConversation(@Param('id') id: string) {
+  removeConversation(@Request() req: AuthRequest, @Param('id') id: string) {
     return this.chat.removeConversation(parseId(id));
   }
 }

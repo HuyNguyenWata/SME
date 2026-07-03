@@ -46,7 +46,8 @@ export class AuthService {
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
+    const hash = await bcrypt.hash('123456', 10);
+    console.log(hash);
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
