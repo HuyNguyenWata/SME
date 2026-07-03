@@ -56,6 +56,14 @@ export class ProductsController {
     return this.products.findOne(parseId(id));
   }
 
+  @Post('bulk-get')
+  @ApiOperation({ summary: 'Get products by multiple IDs (for AI Core)' })
+  findByIds(
+    @Body() dto: import('./dto/get-products-by-ids.dto').GetProductsByIdsDto,
+  ) {
+    return this.products.findByIds(dto.ids);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'USER') // Adjust roles as needed, or omit @Roles to just require login

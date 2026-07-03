@@ -65,6 +65,12 @@ export class ProductsService {
     return this.toResponse(product);
   }
 
+  async findByIds(ids: number[]) {
+    if (!ids || ids.length === 0) return [];
+    const products = await this.products.findByIds(ids);
+    return products.map((p) => this.toResponse(p));
+  }
+
   async syncProduct(id: number) {
     const product = await this.findOne(id);
     await this.updateEmbeddingStatus(id, ProductEmbeddingStatus.PENDING);

@@ -86,6 +86,24 @@ export class ProductsRepository {
     }
   }
 
+  async findByIds(ids: number[]) {
+    try {
+      return await this.prisma.product.findMany({
+        where: { id: { in: ids } },
+        include: {
+          images: {
+            where: { sortOrder: 0 },
+            take: 1,
+          },
+          user: { include: { category: true } },
+        },
+      });
+    } catch (e) {
+      console.error('PRISMA FINDBYIDS ERROR:', e);
+      throw e;
+    }
+  }
+
   async create(
     dto: CreateProductDto & {
       userId: number;
