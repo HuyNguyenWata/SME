@@ -1,7 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
-import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { CreateConversationDto } from './dto/create-conversation.dto';
+
+type SendMessageInput = SendMessageDto & {
+  userId: number;
+};
+
+type CreateConversationInput = CreateConversationDto & {
+  userId: number;
+};
 
 @Injectable()
 export class ChatService {
@@ -19,11 +27,19 @@ export class ChatService {
     });
   }
 
-  createConversation(dto: CreateConversationDto) {
-    return this.prisma.conversation.create({ data: dto });
+  async createConversation(dto: CreateConversationInput) {
+    return this.prisma.conversation.create({
+      data: {
+        title: dto.title ?? 'New Chat',
+        userId: dto.userId,
+      },
+      include: {
+        chats: true,
+      },
+    });
   }
 
-  async send(conversationId: number, dto: SendMessageDto) {
+  async send(conversationId: number, dto: SendMessageInput) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
     });
@@ -87,5 +103,21 @@ export class ChatService {
     if (!conversation) throw new NotFoundException('Conversation not found');
     await this.prisma.conversation.delete({ where: { id } });
     return { id };
+  }
+
+  async conversation(id: number, userId: number) {
+    return this.prisma.conversation.findFirst({
+      where: {
+        id,
+        userId,
+      },
+      include: {
+        chats: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+      },
+    });
   }
 }
