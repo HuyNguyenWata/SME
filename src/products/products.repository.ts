@@ -140,7 +140,7 @@ export class ProductsRepository {
   ) {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const product = await tx.product.update({
+        await tx.product.update({
           where: { id },
           data: {
             userId: dto.userId,

@@ -19,7 +19,6 @@ model User {
 
   category          Category?          @relation(fields: [categoryId], references: [id])
   products          Product[]
-  rawDocs           RawDoc[]
   conversations     Conversation[]
   generatedContents GeneratedContent[]
 
@@ -37,17 +36,20 @@ model Category {
 }
 
 model Product {
-  id          Int      @id @default(autoincrement())
-  userId      Int      @map("user_id")
-  name        String
-  description String?
-  price       Decimal  @db.Decimal(10, 2)
-  quantity    Int
-  unit        String
-  sku         String
-  status      String
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                 Int       @id @default(autoincrement())
+  userId             Int       @map("user_id")
+  name               String
+  description        String?
+  price              Decimal   @db.Decimal(10, 2)
+  quantity           Int
+  unit               String
+  sku                String
+  status             String
+  specifications     Json?
+  embeddingStatus    String?   @map("embedding_status")
+  embeddingUpdatedAt DateTime? @map("embedding_updated_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
   user               User               @relation(fields: [userId], references: [id])
   images             ProductImage[]
@@ -80,37 +82,6 @@ model ProductComment {
   product Product @relation(fields: [productId], references: [id])
 
   @@map("ProductComment")
-}
-
-model RawDoc {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  source    String
-  title     String
-  content   String
-  status    String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  user              User               @relation(fields: [userId], references: [id])
-  crawlDocs         CrawlDoc[]
-  generatedContents GeneratedContent[]
-
-  @@map("RawDoc")
-}
-
-model CrawlDoc {
-  id        Int      @id @default(autoincrement())
-  rawDocId  Int      @map("raw_doc_id")
-  url       String
-  title     String
-  content   String
-  metadata  Json
-  createdAt DateTime @default(now()) @map("created_at")
-
-  rawDoc RawDoc @relation(fields: [rawDocId], references: [id])
-
-  @@map("CrawlDoc")
 }
 
 model Conversation {
@@ -151,32 +122,44 @@ model RSSSource {
 }
 
 model GeneratedContent {
-  id          Int      @id @default(autoincrement())
-  userId      Int      @map("user_id")
-  sourceDocId Int      @map("source_doc_id")
-  title       String
-  content     String
-  status      String
-  createdAt   DateTime @default(now()) @map("created_at")
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  title     String
+  content   String
+  status    String
+  createdAt DateTime @default(now()) @map("created_at")
 
-  user      User   @relation(fields: [userId], references: [id])
-  sourceDoc RawDoc @relation(fields: [sourceDocId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   socialPosts SocialPost[]
 
   @@map("GeneratedContent")
 }
 
+model SocialPlatform {
+  id        Int      @id @default(autoincrement())
+  name      String
+  config    Json?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  socialPosts SocialPost[]
+
+  @@map("SocialPlatform")
+}
+
 model SocialPost {
   id                 Int       @id @default(autoincrement())
   generatedContentId Int       @map("generated_content_id")
-  platform           String
+  platformId         Int       @map("platform_id")
   postId             String?   @map("post_id")
   publishedAt        DateTime? @map("published_at")
   status             String
   createdAt          DateTime  @default(now()) @map("created_at")
 
   generatedContent GeneratedContent @relation(fields: [generatedContentId], references: [id])
+  platform         SocialPlatform   @relation(fields: [platformId], references: [id])
   comments         SocialComment[]
 
   @@map("SocialPost")
@@ -208,18 +191,31 @@ model InventoryHistory {
 }
 
 model PromptTemplate {
-  id     Int    @id @default(autoincrement())
-  name   String
-  prompt String
-  type   String
+  id       Int     @id @default(autoincrement())
+  name     String
+  prompt   String
+  isActive Boolean @default(true) @map("is_active")
+  type     String
 
   @@map("PromptTemplate")
 }
 
 model Setting {
-  key         String @id
+  key         String  @id
   value       String
   description String?
 
   @@map("Setting")
+}
+
+model AIJob {
+  id         Int       @id @default(autoincrement())
+  type       String
+  status     String
+  targetId   Int?      @map("target_id")
+  error      String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  finishedAt DateTime? @map("finished_at")
+
+  @@map("AIJob")
 }

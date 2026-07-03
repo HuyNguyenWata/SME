@@ -12,9 +12,9 @@ export class CreateSocialPostDto {
   @IsInt()
   generatedContentId!: number;
 
-  @ApiProperty({ enum: ['FACEBOOK', 'LINKEDIN', 'X'] })
-  @IsIn(['FACEBOOK', 'LINKEDIN', 'X'])
-  platform!: 'FACEBOOK' | 'LINKEDIN' | 'X';
+  @ApiProperty()
+  @IsInt()
+  platformId!: number;
 
   @ApiPropertyOptional()
   @IsOptional()

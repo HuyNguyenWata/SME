@@ -25,7 +25,6 @@ export class AuthController {
   @ApiBody({ type: RegisterDto })
   @ApiResponse({ status: 201, description: 'JWT token pair and user profile' })
   register(@Body() dto: RegisterDto) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.auth.register(dto);
   }
 

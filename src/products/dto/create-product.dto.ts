@@ -7,6 +7,8 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsObject,
+  IsDateString,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -50,6 +52,21 @@ export class CreateProductDto {
   @ApiProperty({ enum: ['ACTIVE', 'OUT_OF_STOCK', 'HIDDEN'] })
   @IsIn(['ACTIVE', 'OUT_OF_STOCK', 'HIDDEN'])
   status!: 'ACTIVE' | 'OUT_OF_STOCK' | 'HIDDEN';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsObject()
+  specifications?: any;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  embeddingStatus?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  embeddingUpdatedAt?: string;
 
   @ApiPropertyOptional({ type: [ProductImageDto] })
   @IsOptional()

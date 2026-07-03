@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsBoolean, IsOptional } from 'class-validator';
 
 export class PromptTemplateDto {
   @ApiProperty()
@@ -13,4 +13,9 @@ export class PromptTemplateDto {
   @ApiProperty()
   @IsString()
   type!: string;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 }
