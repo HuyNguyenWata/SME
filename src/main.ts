@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import compression from 'compression';
@@ -25,9 +25,10 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(new HttpExceptionFilter());
+  const reflector = app.get(Reflector);
   app.useGlobalInterceptors(
     new LoggingInterceptor(),
-    new ResponseInterceptor(),
+    new ResponseInterceptor(reflector),
   );
 
   const swaggerConfig = new DocumentBuilder()

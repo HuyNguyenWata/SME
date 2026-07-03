@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   UploadedFiles,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import {
@@ -17,9 +18,10 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { User } from '../common/decorators/user.decorator';
 import { parseId } from '../common/utils/id.util';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
@@ -55,22 +57,23 @@ export class ProductsController {
   }
 
   @Post()
-  //@UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('ADMIN')
-  // @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'USER') // Adjust roles as needed, or omit @Roles to just require login
+  @ApiBearerAuth()
   @UseInterceptors(FilesInterceptor('images'))
   @ApiOperation({ summary: 'Create product' })
   create(
+    @User('id') userId: number,
     @UploadedFiles() images: Express.Multer.File[],
     @Body() dto: CreateProductDto,
   ) {
-    return this.products.create(dto, images);
+    return this.products.create(userId, dto, images);
   }
 
   @Patch(':id')
-  //@UseGuards(JwtAuthGuard, RolesGuard)
-  //@Roles('ADMIN')
-  // @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'USER')
+  @ApiBearerAuth()
   @UseInterceptors(FilesInterceptor('images'))
   @ApiOperation({ summary: 'Update product' })
   update(
@@ -78,20 +81,24 @@ export class ProductsController {
     @UploadedFiles() images: Express.Multer.File[],
     @Body() dto: UpdateProductDto,
   ) {
-    console.log(dto);
-    console.log(images);
-
     return this.products.update(parseId(id), dto, images);
   }
 
   @Delete()
-  //@UseGuards(JwtAuthGuard, RolesGuard)
-  //@Roles('ADMIN')
-  // @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'USER')
+  @ApiBearerAuth()
   @ApiBody({ type: DeleteProductsDto })
   @ApiOperation({ summary: 'Delete products' })
   removeMany(@Body() dto: DeleteProductsDto) {
-    console.log('BODY:', dto);
     return this.products.removeMany(dto.ids);
+  }
+
+  @Post('webhook/ai-sync')
+  @ApiOperation({ summary: 'Webhook to receive AI vector sync status' })
+  async aiSyncWebhook(
+    @Body() dto: import('./dto/ai-sync-webhook.dto').AiSyncWebhookDto,
+  ) {
+    return this.products.updateEmbeddingStatus(dto.productId, dto.status);
   }
 }

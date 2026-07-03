@@ -8,18 +8,14 @@ import {
   IsOptional,
   IsString,
   IsObject,
-  IsDateString,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { ProductImageDto } from './product-image.dto';
 
-export class CreateProductDto {
-  @ApiProperty()
-  @Type(() => Number)
-  @IsInt()
-  userId!: number;
+import { ProductStatus } from '../enums/product-status.enum';
 
+export class CreateProductDto {
   @ApiProperty()
   @IsString()
   name!: string;
@@ -49,24 +45,14 @@ export class CreateProductDto {
   @IsString()
   sku!: string;
 
-  @ApiProperty({ enum: ['ACTIVE', 'OUT_OF_STOCK', 'HIDDEN'] })
-  @IsIn(['ACTIVE', 'OUT_OF_STOCK', 'HIDDEN'])
-  status!: 'ACTIVE' | 'OUT_OF_STOCK' | 'HIDDEN';
+  @ApiProperty({ enum: ProductStatus })
+  @IsIn(Object.values(ProductStatus))
+  status!: ProductStatus;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
   specifications?: any;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  embeddingStatus?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsDateString()
-  embeddingUpdatedAt?: string;
 
   @ApiPropertyOptional({ type: [ProductImageDto] })
   @IsOptional()

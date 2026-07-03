@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductEmbeddingStatus } from './enums/product-status.enum';
 
 @Injectable()
 export class ProductsRepository {
@@ -85,7 +87,10 @@ export class ProductsRepository {
   }
 
   async create(
-    dto: CreateProductDto,
+    dto: CreateProductDto & {
+      userId: number;
+      embeddingStatus: ProductEmbeddingStatus;
+    },
     images: {
       url: string;
       isThumbnail: boolean;
@@ -103,6 +108,8 @@ export class ProductsRepository {
           unit: dto.unit,
           sku: dto.sku,
           status: dto.status,
+          embeddingStatus: dto.embeddingStatus,
+          specifications: dto.specifications as Prisma.InputJsonValue,
 
           images: images.length
             ? {
@@ -131,7 +138,10 @@ export class ProductsRepository {
 
   async update(
     id: number,
-    dto: UpdateProductDto,
+    dto: UpdateProductDto & {
+      embeddingStatus?: ProductEmbeddingStatus;
+      userId?: number;
+    },
     images: {
       url: string;
       isThumbnail: boolean;
@@ -151,6 +161,8 @@ export class ProductsRepository {
             unit: dto.unit,
             sku: dto.sku,
             status: dto.status,
+            embeddingStatus: dto.embeddingStatus,
+            specifications: dto.specifications as Prisma.InputJsonValue,
           },
         });
 
@@ -183,6 +195,21 @@ export class ProductsRepository {
       });
     } catch (e) {
       console.error('PRISMA UPDATE ERROR:', e);
+      throw e;
+    }
+  }
+
+  async updateEmbeddingStatus(id: number, status: ProductEmbeddingStatus) {
+    try {
+      return await this.prisma.product.update({
+        where: { id },
+        data: {
+          embeddingStatus: status,
+          embeddingUpdatedAt: new Date(),
+        },
+      });
+    } catch (e) {
+      console.error('PRISMA UPDATE EMBEDDING STATUS ERROR:', e);
       throw e;
     }
   }
