@@ -7,7 +7,8 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -26,6 +27,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsArray, IsNumber } from 'class-validator';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
 class DeleteProductsDto {
   @ApiProperty({ type: [Number] })
@@ -56,18 +58,31 @@ export class ProductsController {
   //@UseGuards(JwtAuthGuard, RolesGuard)
   // @Roles('ADMIN')
   // @ApiBearerAuth()
+  @UseInterceptors(FilesInterceptor('images'))
   @ApiOperation({ summary: 'Create product' })
-  create(@Body() dto: CreateProductDto) {
-    return this.products.create(dto);
+  create(
+    @UploadedFiles() images: Express.Multer.File[],
+    @Body() dto: CreateProductDto,
+  ) {
+    return this.products.create(dto, images);
   }
 
   @Patch(':id')
   //@UseGuards(JwtAuthGuard, RolesGuard)
   //@Roles('ADMIN')
   // @ApiBearerAuth()
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  @UseInterceptors(FilesInterceptor('images'))
   @ApiOperation({ summary: 'Update product' })
-  update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
-    return this.products.update(parseId(id), dto);
+  update(
+    @Param('id') id: string,
+    @UploadedFiles() images: Express.Multer.File[],
+    @Body() dto: UpdateProductDto,
+  ) {
+    console.log(dto);
+    console.log(images);
+
+    return this.products.update(parseId(id), dto, images);
   }
 
   @Delete()

@@ -14,6 +14,7 @@ import { ProductImageDto } from './product-image.dto';
 
 export class CreateProductDto {
   @ApiProperty()
+  @Type(() => Number)
   @IsInt()
   userId!: number;
 
@@ -27,11 +28,13 @@ export class CreateProductDto {
   description?: string;
 
   @ApiProperty()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   price!: number;
 
   @ApiProperty()
+  @Type(() => Number)
   @IsInt()
   @Min(0)
   quantity!: number;

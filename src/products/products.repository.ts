@@ -22,7 +22,10 @@ export class ProductsRepository {
                   },
                 },
                 {
-                  sku: { contains: query.search, mode: 'insensitive' as const },
+                  sku: {
+                    contains: query.search,
+                    mode: 'insensitive' as const,
+                  },
                 },
                 {
                   description: {
@@ -39,12 +42,23 @@ export class ProductsRepository {
         this.prisma.product.findMany({
           where,
           include: {
-            images: { orderBy: { sortOrder: 'asc' } },
-            user: { include: { category: true } },
+            images: {
+              where: {
+                sortOrder: 0,
+              },
+              take: 1,
+            },
+            user: {
+              include: {
+                category: true,
+              },
+            },
           },
           skip: (query.page - 1) * query.limit,
           take: query.limit,
-          orderBy: { createdAt: query.sortOrder ?? 'desc' },
+          orderBy: {
+            createdAt: query.sortOrder ?? 'desc',
+          },
         }),
         this.prisma.product.count({ where }),
       ]);
@@ -70,7 +84,14 @@ export class ProductsRepository {
     }
   }
 
-  async create(dto: CreateProductDto) {
+  async create(
+    dto: CreateProductDto,
+    images: {
+      url: string;
+      isThumbnail: boolean;
+      sortOrder: number;
+    }[],
+  ) {
     try {
       return await this.prisma.product.create({
         data: {
@@ -82,17 +103,25 @@ export class ProductsRepository {
           unit: dto.unit,
           sku: dto.sku,
           status: dto.status,
-          images: dto.images?.length
+
+          images: images.length
             ? {
-                create: dto.images.map((image, index) => ({
+                create: images.map((image) => ({
                   url: image.url,
-                  isThumbnail: image.isThumbnail ?? index === 0,
-                  sortOrder: image.sortOrder ?? index,
+                  isThumbnail: image.isThumbnail,
+                  sortOrder: image.sortOrder,
                 })),
               }
             : undefined,
         },
-        include: { images: true, user: { include: { category: true } } },
+        include: {
+          images: true,
+          user: {
+            include: {
+              category: true,
+            },
+          },
+        },
       });
     } catch (e) {
       console.error('PRISMA CREATE ERROR:', e);
@@ -100,14 +129,18 @@ export class ProductsRepository {
     }
   }
 
-  async update(id: number, dto: UpdateProductDto) {
+  async update(
+    id: number,
+    dto: UpdateProductDto,
+    images: {
+      url: string;
+      isThumbnail: boolean;
+      sortOrder: number;
+    }[],
+  ) {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        if (dto.images) {
-          await tx.productImage.deleteMany({ where: { productId: id } });
-        }
-
-        return tx.product.update({
+        const product = await tx.product.update({
           where: { id },
           data: {
             userId: dto.userId,
@@ -118,17 +151,34 @@ export class ProductsRepository {
             unit: dto.unit,
             sku: dto.sku,
             status: dto.status,
-            images: dto.images
-              ? {
-                  create: dto.images.map((image, index) => ({
-                    url: image.url,
-                    isThumbnail: image.isThumbnail ?? index === 0,
-                    sortOrder: image.sortOrder ?? index,
-                  })),
-                }
-              : undefined,
           },
-          include: { images: true, user: { include: { category: true } } },
+        });
+
+        if (images.length > 0) {
+          await tx.productImage.deleteMany({
+            where: { productId: id },
+          });
+
+          await tx.productImage.createMany({
+            data: images.map((image) => ({
+              productId: id,
+              url: image.url,
+              isThumbnail: image.isThumbnail,
+              sortOrder: image.sortOrder,
+            })),
+          });
+        }
+
+        return tx.product.findUnique({
+          where: { id },
+          include: {
+            images: true,
+            user: {
+              include: {
+                category: true,
+              },
+            },
+          },
         });
       });
     } catch (e) {

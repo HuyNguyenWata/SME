@@ -3,10 +3,14 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsRepository } from './products.repository';
+import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly products: ProductsRepository) {}
+  constructor(
+    private readonly products: ProductsRepository,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   async findAll(query: ProductQueryDto) {
     const [items, total] = await this.products.findMany(query);
@@ -24,18 +28,51 @@ export class ProductsService {
     return this.toResponse(product);
   }
 
-  async create(dto: CreateProductDto) {
-    return this.toResponse(await this.products.create(dto));
+  async create(dto: CreateProductDto, images: Express.Multer.File[]) {
+    const imageUrls = images?.length
+      ? await Promise.all(
+          images.map(async (file, index) => {
+            const uploaded = await this.cloudinaryService.upload(file);
+
+            return {
+              url: uploaded.secure_url,
+              isThumbnail: index === 0,
+              sortOrder: index,
+            };
+          }),
+        )
+      : [];
+
+    const created = await this.products.create(dto, imageUrls);
+
+    return this.toResponse(created);
   }
 
-  async update(id: number, dto: UpdateProductDto) {
+  async update(
+    id: number,
+    dto: UpdateProductDto,
+    images: Express.Multer.File[],
+  ) {
     await this.findOne(id);
-    return this.toResponse(await this.products.update(id, dto));
+    const imageUrls = images?.length
+      ? await Promise.all(
+          images.map(async (file, index) => {
+            const uploaded = await this.cloudinaryService.upload(file);
+
+            return {
+              url: uploaded.secure_url,
+              isThumbnail: index === 0,
+              sortOrder: index,
+            };
+          }),
+        )
+      : [];
+
+    const updated = await this.products.update(id, dto, imageUrls);
+
+    return this.toResponse(updated!);
   }
-
   async removeMany(ids: number[]) {
-    console.log('ids', ids);
-
     await this.products.removeMany(ids);
     return { ids };
   }
