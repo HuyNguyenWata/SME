@@ -46,6 +46,13 @@ export class ChatService {
       where: userId ? { userId } : undefined,
       include: {
         chats: {
+          select: {
+            id: true,
+            conversationId: true,
+            role: true,
+            message: true,
+            createdAt: true,
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -63,7 +70,15 @@ export class ChatService {
         userId: dto.userId,
       },
       include: {
-        chats: true,
+        chats: {
+          select: {
+            id: true,
+            conversationId: true,
+            role: true,
+            message: true,
+            createdAt: true,
+          },
+        },
       },
     });
   }
@@ -79,6 +94,13 @@ export class ChatService {
       },
       include: {
         chats: {
+          select: {
+            id: true,
+            conversationId: true,
+            role: true,
+            message: true,
+            createdAt: true,
+          },
           orderBy: {
             createdAt: 'asc',
           },
@@ -171,7 +193,6 @@ export class ChatService {
           id: assistantMsg.id,
           role: assistantMsg.role,
           content: assistantMsg.message,
-          metadata,
         },
       };
     } catch (error) {
@@ -247,20 +268,25 @@ export class ChatService {
       });
 
       for await (const chunk of stream) {
-        // Forward every chunk as SSE to client
-        yield `data: ${JSON.stringify(chunk)}\n\n`;
-
-        // Accumulate content from non-done chunks
-        if (chunk.content && !chunk.done) {
-          fullContent += chunk.content;
-        }
-
-        // Extract metadata from final chunk (done=true)
+        // Extract metadata from final chunk (done=true) before we strip it
         if (chunk.done) {
           if (chunk.token_usage) tokenUsage = chunk.token_usage;
           if (chunk.latency_ms) latencyMs = chunk.latency_ms;
           if (chunk.is_error) isError = chunk.is_error;
           if (chunk.error_code) errorCode = chunk.error_code;
+        }
+
+        // Forward every chunk as SSE to client but omit internal metadata
+        const safeChunk: Record<string, any> = { ...chunk };
+        delete safeChunk.token_usage;
+        delete safeChunk.latency_ms;
+        delete safeChunk.is_error;
+        delete safeChunk.error_code;
+        yield `data: ${JSON.stringify(safeChunk)}\n\n`;
+
+        // Accumulate content from non-done chunks
+        if (chunk.content && !chunk.done) {
+          fullContent += chunk.content;
         }
       }
 

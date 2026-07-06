@@ -107,6 +107,10 @@ export class ChatController {
 
       for await (const chunk of stream) {
         res.write(chunk);
+        const resWithFlush = res as unknown as { flush?: () => void };
+        if (typeof resWithFlush.flush === 'function') {
+          resWithFlush.flush();
+        }
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
