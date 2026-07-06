@@ -35,4 +35,14 @@ export class InventoryController {
   export(@Body() dto: InventoryTransactionDto) {
     return this.inventory.export(dto);
   }
+
+  @Get('dead-stock')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get dead stock' })
+  getDeadStock(@Query('thresholdDays') thresholdDays?: string) {
+    const days = thresholdDays ? parseInt(thresholdDays, 10) : 60;
+    return this.inventory.getDeadStock(days);
+  }
 }

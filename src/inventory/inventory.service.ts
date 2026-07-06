@@ -104,4 +104,59 @@ export class InventoryService {
       return history;
     });
   }
+  async getDeadStock(thresholdDays: number = 60) {
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - thresholdDays);
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        quantity: { gt: 0 },
+        createdAt: { lt: thresholdDate },
+        inventoryHistories: {
+          none: {
+            type: 'OUT',
+            createdAt: { gte: thresholdDate },
+          },
+        },
+      },
+      include: {
+        inventoryHistories: {
+          where: { type: 'OUT' },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    const now = Date.now();
+
+    return products
+      .map((p) => {
+        const lastOutDate =
+          p.inventoryHistories.length > 0
+            ? p.inventoryHistories[0].createdAt
+            : p.createdAt;
+        const ageDays = Math.floor(
+          (now - lastOutDate.getTime()) / (24 * 60 * 60 * 1000),
+        );
+
+        return {
+          id: `dead-stock-${p.id}`,
+          productId: p.id,
+          productName: p.name,
+          quantity: p.quantity,
+          ageDays,
+          severity: ageDays > 120 ? 'high' : 'medium',
+          suggestion: this.getLiquidationSuggestion(ageDays),
+        };
+      })
+      .sort((a, b) => b.ageDays - a.ageDays);
+  }
+
+  private getLiquidationSuggestion(ageDays: number) {
+    if (ageDays > 120) return 'Clearance sale -50% or bundle liquidation';
+    if (ageDays > 90) return 'Discount 20–30% + push marketing ads';
+    if (ageDays > 60) return 'Bundle with fast-moving products';
+    return 'Normal promotion';
+  }
 }
