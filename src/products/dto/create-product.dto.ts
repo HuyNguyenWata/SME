@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsArray,
   IsIn,
   IsInt,
   IsNumber,
@@ -9,9 +8,7 @@ import {
   IsString,
   IsObject,
   Min,
-  ValidateNested,
 } from 'class-validator';
-import { ProductImageDto } from './product-image.dto';
 
 import { ProductStatus } from '../enums/product-status.enum';
 
@@ -54,10 +51,10 @@ export class CreateProductDto {
   @IsObject()
   specifications?: any;
 
-  @ApiPropertyOptional({ type: [ProductImageDto] })
+  @ApiPropertyOptional({
+    type: 'array',
+    items: { type: 'string', format: 'binary' },
+  })
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ProductImageDto)
-  images?: ProductImageDto[];
+  images?: any[];
 }

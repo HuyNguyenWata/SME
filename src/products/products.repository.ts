@@ -140,7 +140,7 @@ export class ProductsRepository {
             : undefined,
         },
         include: {
-          images: true,
+          images: { orderBy: { sortOrder: 'asc' } },
           user: {
             include: {
               category: true,
@@ -202,7 +202,7 @@ export class ProductsRepository {
         return tx.product.findUnique({
           where: { id },
           include: {
-            images: true,
+            images: { orderBy: { sortOrder: 'asc' } },
             user: {
               include: {
                 category: true,

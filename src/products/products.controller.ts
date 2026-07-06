@@ -14,6 +14,7 @@ import {
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiTags,
@@ -68,6 +69,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'USER') // Adjust roles as needed, or omit @Roles to just require login
   @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
   @UseInterceptors(FilesInterceptor('images'))
   @ApiOperation({ summary: 'Create product' })
   create(
@@ -82,6 +84,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'USER')
   @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
   @UseInterceptors(FilesInterceptor('images'))
   @ApiOperation({ summary: 'Update product' })
   update(
