@@ -9,6 +9,7 @@ import {
   Query,
   UploadedFiles,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -55,9 +56,9 @@ export class ProductsController {
   }
 
   @Post()
-  //@UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('ADMIN')
-  // @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @UseInterceptors(FilesInterceptor('images'))
   @ApiOperation({ summary: 'Create product' })
   create(
@@ -68,10 +69,9 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  //@UseGuards(JwtAuthGuard, RolesGuard)
-  //@Roles('ADMIN')
-  // @ApiBearerAuth()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @UseInterceptors(FilesInterceptor('images'))
   @ApiOperation({ summary: 'Update product' })
   update(
@@ -86,9 +86,9 @@ export class ProductsController {
   }
 
   @Delete()
-  //@UseGuards(JwtAuthGuard, RolesGuard)
-  //@Roles('ADMIN')
-  // @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiBody({ type: DeleteProductsDto })
   @ApiOperation({ summary: 'Delete products' })
   removeMany(@Body() dto: DeleteProductsDto) {
