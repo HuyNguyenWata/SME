@@ -130,11 +130,32 @@ export class ProductsService {
     dto: UpdateProductDto,
     images: Express.Multer.File[],
   ) {
+    const oldProduct = await this.findOne(id);
+
+    // Calculate changed fields
+    const changedFields: string[] = [];
+    if (dto.name && dto.name !== oldProduct.name) changedFields.push('name');
+    if (
+      dto.description !== undefined &&
+      dto.description !== oldProduct.description
+    )
+      changedFields.push('description');
+    if (
+      dto.specifications !== undefined &&
+      JSON.stringify(dto.specifications) !==
+        JSON.stringify(oldProduct.specifications)
+    )
+      changedFields.push('specifications');
+
+    const needsAiSync = changedFields.length > 0;
+
     const internalDto = {
       ...dto,
-      embeddingStatus: ProductEmbeddingStatus.PENDING,
+      ...(needsAiSync
+        ? { embeddingStatus: ProductEmbeddingStatus.PENDING }
+        : {}),
     };
-    const oldProduct = await this.findOne(id);
+
     const imageUrls = images?.length
       ? await Promise.all(
           images.map(async (file, index) => {
@@ -152,23 +173,10 @@ export class ProductsService {
     const updated = await this.products.update(id, internalDto, imageUrls);
     const response = this.toResponse(updated!);
 
-    // Calculate changed fields
-    const changedFields: string[] = [];
-    if (dto.name && dto.name !== oldProduct.name) changedFields.push('name');
-    if (
-      dto.description !== undefined &&
-      dto.description !== oldProduct.description
-    )
-      changedFields.push('description');
-    if (
-      dto.specifications !== undefined &&
-      JSON.stringify(dto.specifications) !==
-        JSON.stringify(oldProduct.specifications)
-    )
-      changedFields.push('specifications');
-
     // Trigger vector db sync asynchronously
-    this.triggerAiCoreSync(response, changedFields);
+    if (needsAiSync) {
+      this.triggerAiCoreSync(response, changedFields);
+    }
 
     return response;
   }
