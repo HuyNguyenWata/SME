@@ -43,7 +43,7 @@ model Product {
   price              Decimal   @db.Decimal(10, 2)
   quantity           Int
   unit               String
-  sku                String
+  sku                String?
   status             String
   specifications     Json?
   embeddingStatus    String?   @map("embedding_status")
@@ -182,7 +182,7 @@ model InventoryHistory {
   productId      Int      @map("product_id")
   type           String
   changeQuantity Int      @map("change_quantity")
-  reason         String
+  reason         String?
   createdAt      DateTime @default(now()) @map("created_at")
 
   product Product @relation(fields: [productId], references: [id])
