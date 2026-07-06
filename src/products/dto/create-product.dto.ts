@@ -38,9 +38,10 @@ export class CreateProductDto {
   @IsString()
   unit!: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  sku!: string;
+  sku?: string;
 
   @ApiProperty({ enum: ProductStatus })
   @IsIn(Object.values(ProductStatus))

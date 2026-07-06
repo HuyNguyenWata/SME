@@ -191,7 +191,7 @@ export class ProductsService {
     price: unknown;
     quantity: number;
     unit: string;
-    sku: string;
+    sku: string | null;
     status: string;
     createdAt: Date;
     updatedAt: Date;
