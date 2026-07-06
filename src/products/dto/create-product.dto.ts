@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   IsIn,
   IsInt,
@@ -48,8 +48,18 @@ export class CreateProductDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as unknown;
+      } catch {
+        return value as unknown;
+      }
+    }
+    return value as unknown;
+  })
   @IsObject()
-  specifications?: any;
+  specifications?: Record<string, unknown>;
 
   @ApiPropertyOptional({
     type: 'array',
