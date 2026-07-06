@@ -28,9 +28,17 @@ export class ProductsService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      }).catch((err) => console.error('Failed to trigger AI Core sync:', err));
+      }).catch((err) =>
+        console.error(
+          'Error connecting to AI Core when syncing product:',
+          err instanceof Error ? err.message : err,
+        ),
+      );
     } catch (error) {
-      console.error('Error initiating AI Core sync:', error);
+      console.error(
+        'Error connecting to AI Core (initiate sync):',
+        error instanceof Error ? error.message : error,
+      );
     }
   }
 
@@ -42,10 +50,16 @@ export class ProductsService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product_ids: productIds }),
       }).catch((err) =>
-        console.error('Failed to trigger AI Core delete:', err),
+        console.error(
+          'Error connecting to AI Core when deleting product:',
+          err instanceof Error ? err.message : err,
+        ),
       );
     } catch (error) {
-      console.error('Error initiating AI Core delete:', error);
+      console.error(
+        'Error connecting to AI Core (initiate delete):',
+        error instanceof Error ? error.message : error,
+      );
     }
   }
 
