@@ -9,9 +9,11 @@ export class ContentService {
   constructor(private readonly prisma: PrismaService) {}
 
   async generated(query: PaginationQueryDto) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 20;
     return await this.prisma.generatedContent.findMany({
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
+      skip: (page - 1) * limit,
+      take: limit,
       orderBy: { createdAt: query.sortOrder ?? 'desc' },
       include: { socialPosts: true },
     });
@@ -22,12 +24,19 @@ export class ContentService {
   }
 
   async socialPosts(query: PaginationQueryDto) {
-    return await this.prisma.socialPost.findMany({
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
-      orderBy: { createdAt: query.sortOrder ?? 'desc' },
-      include: { generatedContent: true, comments: true },
-    });
+    try {
+      const page = Number(query.page) || 1;
+      const limit = Number(query.limit) || 20;
+      return await this.prisma.socialPost.findMany({
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: query.sortOrder ?? 'desc' },
+        include: { generatedContent: true, comments: true },
+      });
+    } catch (e) {
+      console.error('SOCIAL POST ERROR:', e);
+      throw e;
+    }
   }
 
   createSocialPost(dto: CreateSocialPostDto) {

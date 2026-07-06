@@ -417,44 +417,146 @@ export class ChatService {
   async chatAnalytics(days: number) {
     const start = new Date();
     start.setDate(start.getDate() - days + 1);
+    start.setHours(0, 0, 0, 0);
 
-    const [conversationCount, messageCount, chats] = await Promise.all([
-      this.prisma.conversation.count(),
-      this.prisma.chat.count(),
-      this.prisma.chat.findMany({
-        where: {
-          role: 'user',
-          createdAt: {
-            gte: start,
+    const [conversationCount, messageCount, chats, products, histories, posts] =
+      await Promise.all([
+        this.prisma.conversation.count(),
+        this.prisma.chat.count(),
+        this.prisma.chat.findMany({
+          where: {
+            createdAt: {
+              gte: start,
+            },
           },
-        },
-        select: {
-          createdAt: true,
-        },
-      }),
-    ]);
+          select: {
+            role: true,
+            createdAt: true,
+            metadata: true,
+          },
+        }),
+        this.prisma.product.findMany({
+          select: { quantity: true },
+        }),
+        this.prisma.inventoryHistory.findMany({
+          where: {
+            createdAt: { gte: start },
+          },
+          select: {
+            type: true,
+            changeQuantity: true,
+            createdAt: true,
+          },
+        }),
+        this.prisma.socialPost.findMany({
+          where: {
+            createdAt: { gte: start },
+          },
+          select: {
+            createdAt: true,
+          },
+        }),
+      ]);
 
-    const map = new Map<string, number>();
+    const currentInventory = products.reduce((acc, p) => acc + p.quantity, 0);
+
+    const map = new Map<
+      string,
+      { chats: number; tokens: number; inventoryChange: number; posts: number }
+    >();
+
+    const formatDate = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
 
     for (let i = 0; i < days; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
-
-      map.set(d.toISOString().slice(0, 10), 0);
+      map.set(formatDate(d), {
+        chats: 0,
+        tokens: 0,
+        inventoryChange: 0,
+        posts: 0,
+      });
     }
 
+    // Process Chats & Tokens
     for (const chat of chats) {
-      const key = chat.createdAt.toISOString().slice(0, 10);
-      map.set(key, (map.get(key) ?? 0) + 1);
+      const key = formatDate(chat.createdAt);
+      const entry = map.get(key);
+      if (entry) {
+        if (chat.role === 'user') {
+          entry.chats += 1;
+        }
+        if (chat.role === 'assistant' && chat.metadata) {
+          const meta = chat.metadata as {
+            token_usage?: { total_tokens?: number };
+            total_tokens?: number;
+          };
+          const tokens = meta?.token_usage?.total_tokens || meta?.total_tokens;
+          if (tokens) {
+            entry.tokens += tokens;
+          }
+        }
+      }
+    }
+
+    // Process Inventory Histories
+    for (const history of histories) {
+      const key = formatDate(history.createdAt);
+      const entry = map.get(key);
+      if (entry) {
+        if (history.type === 'IN') {
+          entry.inventoryChange += history.changeQuantity;
+        } else if (history.type === 'OUT') {
+          entry.inventoryChange -= history.changeQuantity;
+        }
+      }
+    }
+
+    // Process Marketing Posts
+    for (const post of posts) {
+      const key = formatDate(post.createdAt);
+      const entry = map.get(key);
+      if (entry) {
+        entry.posts += 1;
+      }
+    }
+
+    // Calculate daily series
+    const dailyChats: { date: string; value: number }[] = [];
+    const tokenUsage: { date: string; value: number }[] = [];
+    const marketing: { date: string; value: number }[] = [];
+    const inventory: { date: string; value: number }[] = [];
+
+    // Reconstruct inventory going backwards
+    let invTracker = currentInventory;
+    const sortedEntries = [...map.entries()].sort((a, b) =>
+      a[0] > b[0] ? -1 : 1,
+    ); // newest to oldest
+
+    for (const [date, data] of sortedEntries) {
+      // Store current day inventory (before subtracting today's changes for yesterday)
+      inventory.unshift({ date, value: invTracker });
+      invTracker -= data.inventoryChange; // rollback to previous day
+    }
+
+    for (const [date, data] of map.entries()) {
+      dailyChats.push({ date, value: data.chats });
+      tokenUsage.push({ date, value: data.tokens });
+      marketing.push({ date, value: data.posts }); // Maybe multiply by 1000 for impressions if needed?
     }
 
     return {
       totalConversations: conversationCount,
       totalMessages: messageCount,
-      dailyChats: [...map.entries()].map(([date, value]) => ({
-        date,
-        value,
-      })),
+      dailyChats,
+      inventory,
+      marketing,
+      tokenUsage,
     };
   }
 }
