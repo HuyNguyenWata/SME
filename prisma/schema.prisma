@@ -88,11 +88,14 @@ model Conversation {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
   title     String
+  summary   String?
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user  User   @relation(fields: [userId], references: [id])
   chats Chat[]
 
+  @@index([userId])
   @@map("Conversation")
 }
 
