@@ -7,6 +7,7 @@ import {
   Post,
   Request,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -86,5 +87,11 @@ export class ChatController {
   @Delete('conversations/:id')
   removeConversation(@Request() req: AuthRequest, @Param('id') id: string) {
     return this.chat.removeConversation(parseId(id));
+  }
+
+  @Get('analytics')
+  @ApiOperation({ summary: 'Get chat analytics' })
+  analytics(@Query('days') days = '30') {
+    return this.chat.chatAnalytics(Number(days));
   }
 }

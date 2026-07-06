@@ -120,4 +120,48 @@ export class ChatService {
       },
     });
   }
+
+  async chatAnalytics(days: number) {
+    const start = new Date();
+    start.setDate(start.getDate() - days + 1);
+
+    const [conversationCount, messageCount, chats] = await Promise.all([
+      this.prisma.conversation.count(),
+      this.prisma.chat.count(),
+      this.prisma.chat.findMany({
+        where: {
+          role: 'user',
+          createdAt: {
+            gte: start,
+          },
+        },
+        select: {
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    const map = new Map<string, number>();
+
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+
+      map.set(d.toISOString().slice(0, 10), 0);
+    }
+
+    for (const chat of chats) {
+      const key = chat.createdAt.toISOString().slice(0, 10);
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+
+    return {
+      totalConversations: conversationCount,
+      totalMessages: messageCount,
+      dailyChats: [...map.entries()].map(([date, value]) => ({
+        date,
+        value,
+      })),
+    };
+  }
 }
