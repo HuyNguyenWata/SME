@@ -6,6 +6,16 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PublishDto } from './dto/n8n.request.dto';
 
+type ApiResponse<T = unknown> = {
+  statusCode: number;
+  message: string;
+  data: T;
+};
+
+type WorkflowStartData = {
+  message: string;
+};
+
 @Injectable()
 export class N8NService {
   private readonly logger = new Logger(N8NService.name);
@@ -32,8 +42,7 @@ export class N8NService {
         signal: AbortSignal.timeout(30000),
       });
 
-      const data = await res.json().catch(() => null);
-
+      const data = (await res.json()) as ApiResponse<WorkflowStartData>;
       if (!res.ok) {
         this.logger.error(
           `Publish n8n failed: ${res.status} ${res.statusText}`,
@@ -45,14 +54,9 @@ export class N8NService {
 
       return data;
     } catch (error: any) {
-      this.logger.error(
-        `Publish n8n failed: ${error.message}`,
-        JSON.stringify(error),
-      );
+      this.logger.error(`Publish n8n failed: ${error}`, JSON.stringify(error));
 
-      throw new InternalServerErrorException(
-        error?.message ?? 'Publish to n8n failed',
-      );
+      throw new InternalServerErrorException(error ?? 'Publish to n8n failed');
     }
   }
 }
