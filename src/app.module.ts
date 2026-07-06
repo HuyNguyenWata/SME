@@ -16,6 +16,7 @@ import { SettingsModule } from './settings/settings.module';
 import { PromptsModule } from './prompts/prompts.module';
 import { SocialPlatformModule } from './social-platform/social-platform.module';
 import { AiJobModule } from './ai-job/ai-job.module';
+import { N8NModule } from './n8n/n8n.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { AiJobModule } from './ai-job/ai-job.module';
     PromptsModule,
     SocialPlatformModule,
     AiJobModule,
+    N8NModule,
   ],
   controllers: [AppController],
   providers: [AppService],
