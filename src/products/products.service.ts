@@ -196,6 +196,7 @@ export class ProductsService {
     createdAt: Date;
     updatedAt: Date;
     specifications?: Prisma.JsonValue;
+    embeddingStatus?: string | null;
     images?: {
       id: number;
       url: string;
@@ -225,6 +226,7 @@ export class ProductsService {
       unit: product.unit,
       sku: product.sku,
       status: product.status,
+      embeddingStatus: product.embeddingStatus,
       images: product.images ?? [],
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
