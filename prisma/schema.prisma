@@ -20,6 +20,7 @@ model User {
   category          Category?          @relation(fields: [categoryId], references: [id])
   products          Product[]
   conversations     Conversation[]
+  generatedContents GeneratedContent[]
 
   @@map("User")
 }
@@ -124,9 +125,9 @@ model RSSSource {
 }
 
 model GeneratedContent {
-  id                Int            @id @default(autoincrement())
+  id                Int      @id @default(autoincrement())
   title             String
-  createdAt         DateTime       @default(now()) @map("created_at")
+  createdAt         DateTime @default(now()) @map("created_at")
   relevant          Boolean?
   reason            String?
   facebook_post     String?
@@ -134,8 +135,11 @@ model GeneratedContent {
   hashtags          Json?
   seo_keywords      Json?
   source_article_id BigInt?
-  SourceArticle     SourceArticle? @relation(fields: [source_article_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  socialPosts       SocialPost[]
+  userId            Int?     @map("user_id")
+
+  SourceArticle SourceArticle? @relation(fields: [source_article_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  socialPosts   SocialPost[]
+  user          User?          @relation(fields: [userId], references: [id])
 
   @@map("GeneratedContent")
 }
