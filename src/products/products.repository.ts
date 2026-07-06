@@ -138,6 +138,18 @@ export class ProductsRepository {
                 })),
               }
             : undefined,
+          inventoryHistories:
+            dto.quantity > 0
+              ? {
+                  create: [
+                    {
+                      type: 'IN',
+                      changeQuantity: dto.quantity,
+                      reason: 'Initial product inventory',
+                    },
+                  ],
+                }
+              : undefined,
         },
         include: {
           images: { orderBy: { sortOrder: 'asc' } },
@@ -235,6 +247,10 @@ export class ProductsRepository {
   async removeMany(ids: number[]) {
     try {
       await this.prisma.productImage.deleteMany({
+        where: { productId: { in: ids } },
+      });
+
+      await this.prisma.inventoryHistory.deleteMany({
         where: { productId: { in: ids } },
       });
 
