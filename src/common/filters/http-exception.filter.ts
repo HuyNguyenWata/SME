@@ -23,13 +23,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Internal server error';
 
+    const message =
+      typeof body === 'string'
+        ? body
+        : ((body as { message?: unknown }).message ?? 'Request failed');
+
     response.status(status).json({
-      error: {
-        statusCode: status,
-        message:
-          typeof body === 'string'
-            ? body
-            : ((body as { message?: unknown }).message ?? 'Request failed'),
+      statusCode: status,
+      message: message,
+      data: null,
+      error:
+        typeof body === 'object'
+          ? (body as { error?: string }).error
+          : undefined,
+      meta: {
         path: request.url,
         timestamp: new Date().toISOString(),
       },

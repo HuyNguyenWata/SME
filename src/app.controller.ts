@@ -15,7 +15,22 @@ export class AppController {
 
   @Get('health')
   @ApiOperation({ summary: 'Health check' })
-  health() {
-    return { status: 'ok' };
+  async health() {
+    let aiCoreStatus = 'down';
+    try {
+      const aiCoreUrl = process.env.AI_CORE_URL || 'http://localhost:8080';
+      const response = await fetch(`${aiCoreUrl}/health`);
+      if (response.ok) {
+        aiCoreStatus = 'ok';
+      }
+    } catch (error) {
+      console.error('AI Core is unreachable for health check', error);
+      aiCoreStatus = 'down';
+    }
+
+    return {
+      status: 'ok',
+      aiCore: aiCoreStatus,
+    };
   }
 }

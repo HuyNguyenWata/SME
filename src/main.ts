@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import compression from 'compression';
@@ -12,10 +12,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') ?? true,
+    origin: process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()) ?? true,
     credentials: true,
   });
-  app.use(helmet());
+  app.use(helmet({ crossOriginResourcePolicy: false }));
   app.use(compression());
   app.useGlobalPipes(
     new ValidationPipe({
@@ -25,9 +25,10 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(new HttpExceptionFilter());
+  const reflector = app.get(Reflector);
   app.useGlobalInterceptors(
     new LoggingInterceptor(),
-    new ResponseInterceptor(),
+    new ResponseInterceptor(reflector),
   );
 
   const swaggerConfig = new DocumentBuilder()
@@ -42,6 +43,11 @@ async function bootstrap() {
     SwaggerModule.createDocument(app, swaggerConfig),
   );
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
+  console.log(`🚀 Application is running on: http://localhost:${port}/api`);
+  console.log(
+    `📚 Swagger documentation is available at: http://localhost:${port}/docs`,
+  );
 }
 bootstrap();

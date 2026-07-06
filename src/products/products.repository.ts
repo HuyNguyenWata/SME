@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductEmbeddingStatus } from './enums/product-status.enum';
 
 @Injectable()
 export class ProductsRepository {
@@ -84,8 +86,29 @@ export class ProductsRepository {
     }
   }
 
+  async findByIds(ids: number[]) {
+    try {
+      return await this.prisma.product.findMany({
+        where: { id: { in: ids } },
+        include: {
+          images: {
+            where: { sortOrder: 0 },
+            take: 1,
+          },
+          user: { include: { category: true } },
+        },
+      });
+    } catch (e) {
+      console.error('PRISMA FINDBYIDS ERROR:', e);
+      throw e;
+    }
+  }
+
   async create(
-    dto: CreateProductDto,
+    dto: CreateProductDto & {
+      userId: number;
+      embeddingStatus: ProductEmbeddingStatus;
+    },
     images: {
       url: string;
       isThumbnail: boolean;
@@ -103,6 +126,8 @@ export class ProductsRepository {
           unit: dto.unit,
           sku: dto.sku,
           status: dto.status,
+          embeddingStatus: dto.embeddingStatus,
+          specifications: dto.specifications as Prisma.InputJsonValue,
 
           images: images.length
             ? {
@@ -113,9 +138,21 @@ export class ProductsRepository {
                 })),
               }
             : undefined,
+          inventoryHistories:
+            dto.quantity > 0
+              ? {
+                  create: [
+                    {
+                      type: 'IN',
+                      changeQuantity: dto.quantity,
+                      reason: 'Initial product inventory',
+                    },
+                  ],
+                }
+              : undefined,
         },
         include: {
-          images: true,
+          images: { orderBy: { sortOrder: 'asc' } },
           user: {
             include: {
               category: true,
@@ -131,7 +168,10 @@ export class ProductsRepository {
 
   async update(
     id: number,
-    dto: UpdateProductDto,
+    dto: UpdateProductDto & {
+      embeddingStatus?: ProductEmbeddingStatus;
+      userId?: number;
+    },
     images: {
       url: string;
       isThumbnail: boolean;
@@ -140,7 +180,7 @@ export class ProductsRepository {
   ) {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const product = await tx.product.update({
+        await tx.product.update({
           where: { id },
           data: {
             userId: dto.userId,
@@ -151,6 +191,8 @@ export class ProductsRepository {
             unit: dto.unit,
             sku: dto.sku,
             status: dto.status,
+            embeddingStatus: dto.embeddingStatus,
+            specifications: dto.specifications as Prisma.InputJsonValue,
           },
         });
 
@@ -172,7 +214,7 @@ export class ProductsRepository {
         return tx.product.findUnique({
           where: { id },
           include: {
-            images: true,
+            images: { orderBy: { sortOrder: 'asc' } },
             user: {
               include: {
                 category: true,
@@ -187,9 +229,28 @@ export class ProductsRepository {
     }
   }
 
+  async updateEmbeddingStatus(id: number, status: ProductEmbeddingStatus) {
+    try {
+      return await this.prisma.product.update({
+        where: { id },
+        data: {
+          embeddingStatus: status,
+          embeddingUpdatedAt: new Date(),
+        },
+      });
+    } catch (e) {
+      console.error('PRISMA UPDATE EMBEDDING STATUS ERROR:', e);
+      throw e;
+    }
+  }
+
   async removeMany(ids: number[]) {
     try {
       await this.prisma.productImage.deleteMany({
+        where: { productId: { in: ids } },
+      });
+
+      await this.prisma.inventoryHistory.deleteMany({
         where: { productId: { in: ids } },
       });
 

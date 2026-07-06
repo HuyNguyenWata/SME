@@ -7,10 +7,6 @@ export class CreateGeneratedContentDto {
   userId!: number;
 
   @ApiProperty()
-  @IsInt()
-  sourceDocId!: number;
-
-  @ApiProperty()
   @IsString()
   title!: string;
 

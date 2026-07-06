@@ -8,12 +8,12 @@ import { CreateSocialPostDto } from './dto/create-social-post.dto';
 export class ContentService {
   constructor(private readonly prisma: PrismaService) {}
 
-  generated(query: PaginationQueryDto) {
-    return this.prisma.generatedContent.findMany({
+  async generated(query: PaginationQueryDto) {
+    return await this.prisma.generatedContent.findMany({
       skip: (query.page - 1) * query.limit,
       take: query.limit,
       orderBy: { createdAt: query.sortOrder ?? 'desc' },
-      include: { sourceDoc: true, socialPosts: true },
+      include: { socialPosts: true },
     });
   }
 
@@ -21,8 +21,8 @@ export class ContentService {
     return this.prisma.generatedContent.create({ data: dto });
   }
 
-  socialPosts(query: PaginationQueryDto) {
-    return this.prisma.socialPost.findMany({
+  async socialPosts(query: PaginationQueryDto) {
+    return await this.prisma.socialPost.findMany({
       skip: (query.page - 1) * query.limit,
       take: query.limit,
       orderBy: { createdAt: query.sortOrder ?? 'desc' },

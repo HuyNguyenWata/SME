@@ -1,7 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
-import { CreateInventoryHistoryDto } from './dto/create-inventory-history.dto';
+import { InventoryTransactionDto } from './dto/inventory-transaction.dto';
 
 @Injectable()
 export class InventoryService {
@@ -41,15 +45,63 @@ export class InventoryService {
     };
   }
 
-  async create(dto: CreateInventoryHistoryDto) {
-    const event = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.inventoryHistory.create({ data: dto });
+  async import(dto: InventoryTransactionDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({
+        where: { id: dto.productId },
+      });
+      if (!product) {
+        throw new NotFoundException('Product not found');
+      }
+
+      const history = await tx.inventoryHistory.create({
+        data: {
+          productId: dto.productId,
+          type: 'IN',
+          changeQuantity: dto.quantity,
+          reason: dto.reason,
+        },
+      });
+
       await tx.product.update({
         where: { id: dto.productId },
-        data: { quantity: { increment: dto.changeQuantity } },
+        data: { quantity: { increment: dto.quantity } },
       });
-      return created;
+
+      return history;
     });
-    return event;
+  }
+
+  async export(dto: InventoryTransactionDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({
+        where: { id: dto.productId },
+      });
+      if (!product) {
+        throw new NotFoundException('Product not found');
+      }
+
+      if (product.quantity < dto.quantity) {
+        throw new BadRequestException(
+          'Insufficient inventory quantity for export',
+        );
+      }
+
+      const history = await tx.inventoryHistory.create({
+        data: {
+          productId: dto.productId,
+          type: 'OUT',
+          changeQuantity: dto.quantity,
+          reason: dto.reason,
+        },
+      });
+
+      await tx.product.update({
+        where: { id: dto.productId },
+        data: { quantity: { decrement: dto.quantity } },
+      });
+
+      return history;
+    });
   }
 }

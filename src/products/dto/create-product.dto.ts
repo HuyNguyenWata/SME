@@ -1,23 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
-  IsArray,
   IsIn,
   IsInt,
   IsNumber,
   IsOptional,
   IsString,
+  IsObject,
   Min,
-  ValidateNested,
 } from 'class-validator';
-import { ProductImageDto } from './product-image.dto';
+
+import { ProductStatus } from '../enums/product-status.enum';
 
 export class CreateProductDto {
-  @ApiProperty()
-  @Type(() => Number)
-  @IsInt()
-  userId!: number;
-
   @ApiProperty()
   @IsString()
   name!: string;
@@ -43,18 +38,34 @@ export class CreateProductDto {
   @IsString()
   unit!: string;
 
-  @ApiProperty()
-  @IsString()
-  sku!: string;
-
-  @ApiProperty({ enum: ['ACTIVE', 'OUT_OF_STOCK', 'HIDDEN'] })
-  @IsIn(['ACTIVE', 'OUT_OF_STOCK', 'HIDDEN'])
-  status!: 'ACTIVE' | 'OUT_OF_STOCK' | 'HIDDEN';
-
-  @ApiPropertyOptional({ type: [ProductImageDto] })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ProductImageDto)
-  images?: ProductImageDto[];
+  @IsString()
+  sku?: string;
+
+  @ApiProperty({ enum: ProductStatus })
+  @IsIn(Object.values(ProductStatus))
+  status!: ProductStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as unknown;
+      } catch {
+        return value as unknown;
+      }
+    }
+    return value as unknown;
+  })
+  @IsObject()
+  specifications?: Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    type: 'array',
+    items: { type: 'string', format: 'binary' },
+  })
+  @IsOptional()
+  images?: any[];
 }
