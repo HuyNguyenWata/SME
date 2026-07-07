@@ -12,7 +12,10 @@ export class PrismaService
     const databaseUrl =
       config.get<string>('DATABASE_URL') ??
       'postgresql://postgres:postgres@localhost:5432/sms';
-    super({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+    super({
+      adapter: new PrismaPg({ connectionString: databaseUrl }),
+      log: ['query', 'error'],
+    });
   }
 
   async onModuleInit() {
