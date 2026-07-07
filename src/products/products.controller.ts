@@ -33,14 +33,21 @@ import { ProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsNumber } from 'class-validator';
+import { IsArray, IsNumber, IsString } from 'class-validator';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { CreateProductFromAiDto } from './dto/create-product-from-ai.dto';
 
 class DeleteProductsDto {
   @ApiProperty({ type: [Number] })
   @IsArray()
   @IsNumber({}, { each: true })
   ids!: number[];
+}
+
+class GenerateContentStreamDto {
+  @ApiProperty()
+  @IsString()
+  prompt!: string;
 }
 
 @ApiTags('Products')
@@ -99,13 +106,14 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'USER')
   @ApiBearerAuth()
+  @ApiBody({ type: CreateProductFromAiDto })
   @ApiOperation({
     summary: 'Create product from AI generated data (supports image URLs)',
   })
   createFromAi(
     @User('id') userId: number,
     @Body()
-    dto: import('./dto/create-product-from-ai.dto').CreateProductFromAiDto,
+    dto: CreateProductFromAiDto,
   ) {
     return this.products.createFromAi(userId, dto);
   }
@@ -114,9 +122,10 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'USER')
   @ApiBearerAuth()
+  @ApiBody({ type: GenerateContentStreamDto })
   @ApiOperation({ summary: 'Proxy AI Content Generator SSE Stream' })
   async proxyGenerateContentStream(
-    @Body() body: { prompt: string },
+    @Body() body: GenerateContentStreamDto,
     @Req() req: import('express').Request,
     @Res() res: import('express').Response,
   ) {
