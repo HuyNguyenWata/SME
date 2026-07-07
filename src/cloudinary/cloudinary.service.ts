@@ -28,4 +28,19 @@ export class CloudinaryService {
       Readable.from(file.buffer).pipe(stream);
     });
   }
+
+  uploadFromUrl(url: string): Promise<UploadApiResponse> {
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader.upload(
+        url,
+        {
+          folder: 'products',
+        },
+        (error, result) => {
+          if (error) return reject(new Error(error.message));
+          resolve(result!);
+        },
+      );
+    });
+  }
 }
