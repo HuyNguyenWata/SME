@@ -5,7 +5,6 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { ContentService } from './content.service';
-import { CreateGeneratedContentDto } from './dto/create-generated-content.dto';
 import { CreateSocialPostDto } from './dto/create-social-post.dto';
 
 @ApiTags('Content')
@@ -16,14 +15,6 @@ export class ContentController {
   @Get('generated-content')
   generated(@Query() query: PaginationQueryDto) {
     return this.content.generated(query);
-  }
-
-  @Post('generated-content')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  @ApiBearerAuth()
-  createGenerated(@Body() dto: CreateGeneratedContentDto) {
-    return this.content.createGenerated(dto);
   }
 
   @Get('social-posts')
