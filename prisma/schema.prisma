@@ -57,6 +57,8 @@ model Product {
   images             ProductImage[]
   comments           ProductComment[]
   inventoryHistories InventoryHistory[]
+  marketingProducts  MarketingProduct[]
+  socialCalendars    SocialCalendar[]
 
   @@map("Product")
 }
@@ -136,18 +138,19 @@ model GeneratedContent {
   website_article   String?
   hashtags          Json?
   seo_keywords      Json?
-  source_article_id BigInt?
+  source_article_id Int?
   userId            Int?     @map("user_id")
 
-  SourceArticle SourceArticle? @relation(fields: [source_article_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  socialPosts   SocialPost[]
-  user          User?          @relation(fields: [userId], references: [id])
+  SourceArticle   SourceArticle?   @relation(fields: [source_article_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  socialPosts     SocialPost[]
+  user            User?            @relation(fields: [userId], references: [id])
+  socialCalendars SocialCalendar[]
 
   @@map("GeneratedContent")
 }
 
 model SourceArticle {
-  id               BigInt             @id @default(autoincrement())
+  id               Int                @id @default(autoincrement())
   external_id      String?            @unique
   title            String?
   description      String?
@@ -167,7 +170,8 @@ model SocialPlatform {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  socialPosts SocialPost[]
+  socialPosts     SocialPost[]
+  socialCalendars SocialCalendar[]
 
   @@map("SocialPlatform")
 }
@@ -241,4 +245,52 @@ model AIJob {
   finishedAt DateTime? @map("finished_at")
 
   @@map("AIJob")
+}
+
+model MarketingProduct {
+  id                Int       @id @default(autoincrement())
+  productId         Int       @map("product_id")
+  sellingPoints     Json?     @map("selling_points")
+  targetCustomer    String?   @map("target_customer")
+  promotionText     String?   @map("promotion_text")
+  isFeatured        Boolean   @default(false) @map("is_featured")
+  priority          Int       @default(0)
+  lastPostedAt      DateTime? @map("last_posted_at")
+  postFrequencyDays Int?      @map("post_frequency_days")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("MarketingProduct")
+}
+
+model Campaign {
+  id        Int       @id @default(autoincrement())
+  name      String
+  startDate DateTime? @map("start_date")
+  endDate   DateTime? @map("end_date")
+  status    String
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  socialCalendars SocialCalendar[]
+
+  @@map("Campaign")
+}
+
+model SocialCalendar {
+  id                 Int       @id @default(autoincrement())
+  productId          Int?      @map("product_id")
+  campaignId         Int?      @map("campaign_id")
+  platformId         Int       @map("platform_id")
+  publishAt          DateTime? @map("publish_at")
+  status             String
+  generatedContentId Int?      @map("generated_content_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  product          Product?          @relation(fields: [productId], references: [id])
+  campaign         Campaign?         @relation(fields: [campaignId], references: [id])
+  platform         SocialPlatform    @relation(fields: [platformId], references: [id])
+  generatedContent GeneratedContent? @relation(fields: [generatedContentId], references: [id])
+
+  @@map("SocialCalendar")
 }
