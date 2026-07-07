@@ -91,9 +91,10 @@ model ProductComment {
 model Conversation {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
-  title     String
-  summary   String?
-  createdAt DateTime @default(now()) @map("created_at")
+  title            String
+  summary          String?
+  contextProductId Int?     @map("context_product_id")
+  createdAt        DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user  User   @relation(fields: [userId], references: [id])
