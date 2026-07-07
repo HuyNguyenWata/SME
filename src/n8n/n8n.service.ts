@@ -4,7 +4,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PublishDto } from './dto/n8n.request.dto';
+import { PublishDto, ContentDto } from './dto/n8n.request.dto';
 
 type ApiResponse<T = unknown> = {
   statusCode: number;
@@ -23,11 +23,15 @@ export class N8NService {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly webhookUrl: string;
+  private readonly webhooCreateContentkUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = this.configService.getOrThrow<string>('N8N_URL');
     this.apiKey = this.configService.getOrThrow<string>('N8N_API_KEY');
     this.webhookUrl = this.configService.getOrThrow<string>('N8N_WEBHOOK_URL');
+    this.webhooCreateContentkUrl = this.configService.getOrThrow<string>(
+      'N8N_WEBHOOK_CREATE_CONTENT_URL',
+    );
   }
   async publish(dto: PublishDto) {
     try {
@@ -57,6 +61,43 @@ export class N8NService {
       this.logger.error(`Publish n8n failed: ${error}`, JSON.stringify(error));
 
       throw new InternalServerErrorException(error ?? 'Publish to n8n failed');
+    }
+  }
+
+  async createContent(dto: ContentDto) {
+    try {
+      const form = new FormData();
+
+      form.append('product_id', '26');
+      form.append('note', 'This is a test note');
+
+      const res = await fetch(
+        'https://ai-n8n.watasoft.com/webhook/6518d368-4a77-4ac9-be4a-e33c84589ecc',
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+          },
+          body: form,
+          signal: AbortSignal.timeout(30000),
+        },
+      );
+
+      console.log('status:', res.status);
+      console.log('content-type:', res.headers.get('content-type'));
+
+      const text = await res.text();
+
+      console.log('body:', text);
+
+      if (!res.ok) {
+        throw new Error(text);
+      }
+
+      return JSON.parse(text);
+    } catch (error) {
+      console.error('createContent error:', error);
+      throw error;
     }
   }
 }
