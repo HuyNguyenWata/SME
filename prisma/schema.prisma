@@ -136,7 +136,7 @@ model GeneratedContent {
   website_article   String?
   hashtags          Json?
   seo_keywords      Json?
-  source_article_id BigInt?
+  source_article_id Int?
   userId            Int?     @map("user_id")
 
   SourceArticle SourceArticle? @relation(fields: [source_article_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -147,7 +147,7 @@ model GeneratedContent {
 }
 
 model SourceArticle {
-  id               BigInt             @id @default(autoincrement())
+  id               Int                @id @default(autoincrement())
   external_id      String?            @unique
   title            String?
   description      String?
