@@ -15,6 +15,7 @@ export interface AiCoreInternalChatPayload {
   user_id?: string;
   recent_messages: AiCoreMessage[];
   current_message: AiCoreMessage;
+  extra_state?: Record<string, any>;
 }
 
 /** Token usage returned by AI-Core */
