@@ -57,6 +57,14 @@ export class ProductsController {
     return this.products.findOne(parseId(id));
   }
 
+  @Get(':id/analytics')
+  @ApiOperation({ summary: 'Get product analytics' })
+  @ApiParam({ name: 'id', type: Number })
+  getAnalytics(@Param('id') id: string, @Query('days') days?: string) {
+    const d = days ? parseInt(days, 10) : 14;
+    return this.products.getProductAnalytics(parseId(id), d);
+  }
+
   @Post('bulk-get')
   @ApiOperation({ summary: 'Get products by multiple IDs (for AI Core)' })
   findByIds(

@@ -3,22 +3,26 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { InventoryHistoryQueryDto } from './dto/inventory-history-query.dto';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
 import { InventoryTransactionDto } from './dto/inventory-transaction.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: PaginationQueryDto) {
-    const where = query.search
-      ? {
-          product: {
-            name: { contains: query.search, mode: 'insensitive' as const },
-          },
-        }
-      : {};
+  async findAll(query: InventoryHistoryQueryDto) {
+    const where: Prisma.InventoryHistoryWhereInput = {
+      ...(query.productId ? { productId: query.productId } : {}),
+      ...(query.search
+        ? {
+            product: {
+              name: { contains: query.search, mode: 'insensitive' as const },
+            },
+          }
+        : {}),
+    };
     const [items, total] = await Promise.all([
       this.prisma.inventoryHistory.findMany({
         where,

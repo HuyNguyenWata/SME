@@ -4,6 +4,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsRepository } from './products.repository';
+import { PrismaService } from '../prisma/PrismaService/prisma.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 import { ProductEmbeddingStatus } from './enums/product-status.enum';
@@ -13,6 +14,7 @@ export class ProductsService {
   constructor(
     private readonly products: ProductsRepository,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private triggerAiCoreSync(
@@ -245,6 +247,89 @@ export class ProductsService {
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       specifications: product.specifications,
+    };
+  }
+
+  async getProductAnalytics(id: number, days: number = 14) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      select: { quantity: true },
+    });
+    if (!product) throw new NotFoundException('Product not found');
+
+    const start = new Date();
+    start.setDate(start.getDate() - days + 1);
+    start.setHours(0, 0, 0, 0);
+
+    const histories = await this.prisma.inventoryHistory.findMany({
+      where: {
+        productId: id,
+        createdAt: { gte: start },
+      },
+      select: {
+        type: true,
+        changeQuantity: true,
+        createdAt: true,
+      },
+    });
+
+    const map = new Map<string, { change: number; in: number; out: number }>();
+
+    const formatDate = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      map.set(formatDate(d), { change: 0, in: 0, out: 0 });
+    }
+
+    let totalIn = 0;
+    let totalOut = 0;
+
+    for (const history of histories) {
+      const key = formatDate(history.createdAt);
+      if (map.has(key)) {
+        const entry = map.get(key)!;
+        if (history.type === 'IN') {
+          entry.change += history.changeQuantity;
+          entry.in += history.changeQuantity;
+          totalIn += history.changeQuantity;
+        }
+        if (history.type === 'OUT') {
+          entry.change -= history.changeQuantity;
+          entry.out += history.changeQuantity;
+          totalOut += history.changeQuantity;
+        }
+      }
+    }
+
+    const inventory: { date: string; value: number }[] = [];
+    const flow: { date: string; in: number; out: number }[] = [];
+    let invTracker = product.quantity;
+
+    const sortedEntries = [...map.entries()].sort((a, b) =>
+      a[0] > b[0] ? -1 : 1,
+    );
+
+    for (const [date, data] of sortedEntries) {
+      inventory.unshift({ date, value: invTracker });
+      flow.unshift({ date, in: data.in, out: data.out });
+      invTracker -= data.change;
+    }
+
+    return {
+      inventory,
+      flow,
+      stats: {
+        totalIn,
+        totalOut,
+        currentQuantity: product.quantity,
+      },
     };
   }
 }
