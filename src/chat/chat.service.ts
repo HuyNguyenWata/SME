@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { CreateConversationDto } from './dto/create-conversation.dto';
+import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { AiCoreClientService } from '../common/services/ai-core-client.service';
 import type {
   AiCoreMessage,
@@ -84,6 +85,30 @@ export class ChatService {
   }
 
   // ==============================
+  // UPDATE CONVERSATION
+  // ==============================
+  async updateConversation(
+    userId: number,
+    id: number,
+    dto: UpdateConversationDto,
+  ) {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id, userId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    return this.prisma.conversation.update({
+      where: { id },
+      data: {
+        contextProductId: dto.contextProductId,
+      },
+    });
+  }
+
+  // ==============================
   // GET SINGLE CONVERSATION
   // ==============================
   async conversation(id: number, userId: number) {
@@ -119,14 +144,23 @@ export class ChatService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
+    let finalContextProductId = conversation.contextProductId;
+    if (dto.contextProductId !== undefined) {
+      finalContextProductId = dto.contextProductId;
+      await this.prisma.conversation.update({
+        where: { id: conversationId },
+        data: { contextProductId: finalContextProductId },
+      });
+    }
+
     // 2. Save user message to DB
     const userMsg = await this.prisma.chat.create({
       data: {
         conversationId,
         role: 'user',
         message: dto.message,
-        metadata: dto.contextProductId
-          ? { contextProductId: dto.contextProductId }
+        metadata: finalContextProductId
+          ? { contextProductId: finalContextProductId }
           : {},
       },
     });
@@ -148,8 +182,8 @@ export class ChatService {
         content: c.message,
       }));
 
-    const extraState = dto.contextProductId
-      ? { current_focus_product: dto.contextProductId }
+    const extraState = finalContextProductId
+      ? { current_focus_product: finalContextProductId }
       : {};
 
     const currentMessage: AiCoreMessage = {
@@ -239,14 +273,23 @@ export class ChatService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
+    let finalContextProductId = conversation.contextProductId;
+    if (dto.contextProductId !== undefined) {
+      finalContextProductId = dto.contextProductId;
+      await this.prisma.conversation.update({
+        where: { id: conversationId },
+        data: { contextProductId: finalContextProductId },
+      });
+    }
+
     // 2. Save user message to DB
     const userMsg = await this.prisma.chat.create({
       data: {
         conversationId,
         role: 'user',
         message: dto.message,
-        metadata: dto.contextProductId
-          ? { contextProductId: dto.contextProductId }
+        metadata: finalContextProductId
+          ? { contextProductId: finalContextProductId }
           : {},
       },
     });
@@ -267,8 +310,8 @@ export class ChatService {
         content: c.message,
       }));
 
-    const extraState = dto.contextProductId
-      ? { current_focus_product: dto.contextProductId }
+    const extraState = finalContextProductId
+      ? { current_focus_product: finalContextProductId }
       : {};
 
     const currentMessage: AiCoreMessage = {
