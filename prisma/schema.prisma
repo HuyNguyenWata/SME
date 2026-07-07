@@ -42,6 +42,8 @@ model Product {
   description        String?
   price              Decimal   @db.Decimal(10, 2)
   quantity           Int
+  lowStockThreshold  Int       @default(10) @map("low_stock_threshold")
+  hasBeenOut         Boolean   @default(false) @map("has_been_out")
   unit               String
   sku                String?
   status             String

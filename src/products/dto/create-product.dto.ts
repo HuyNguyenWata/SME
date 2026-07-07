@@ -34,6 +34,13 @@ export class CreateProductDto {
   @Min(0)
   quantity!: number;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  lowStockThreshold?: number;
+
   @ApiProperty()
   @IsString()
   unit!: string;

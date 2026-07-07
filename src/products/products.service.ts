@@ -198,6 +198,8 @@ export class ProductsService {
     description: string | null;
     price: unknown;
     quantity: number;
+    lowStockThreshold: number;
+    hasBeenOut: boolean;
     unit: string;
     sku: string | null;
     status: string;
@@ -231,6 +233,10 @@ export class ProductsService {
       description: product.description,
       price: Number(product.price),
       quantity: product.quantity,
+      lowStockThreshold: product.lowStockThreshold,
+      hasBeenOut: product.hasBeenOut,
+      isLowStock:
+        product.hasBeenOut && product.quantity <= product.lowStockThreshold,
       unit: product.unit,
       sku: product.sku,
       status: product.status,

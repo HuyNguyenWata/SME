@@ -98,7 +98,10 @@ export class InventoryService {
 
       await tx.product.update({
         where: { id: dto.productId },
-        data: { quantity: { decrement: dto.quantity } },
+        data: {
+          quantity: { decrement: dto.quantity },
+          hasBeenOut: true,
+        },
       });
 
       return history;
