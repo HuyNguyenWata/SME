@@ -127,6 +127,41 @@ export class ProductsService {
     return response;
   }
 
+  async createFromAi(
+    userId: number,
+    dto: import('./dto/create-product-from-ai.dto').CreateProductFromAiDto,
+  ) {
+    const { imageUrls: aiImageUrls, aiDescription, ...restDto } = dto;
+    const internalDto = {
+      ...restDto,
+      userId,
+      description: aiDescription || restDto.description, // Use AI description if provided
+      embeddingStatus: ProductEmbeddingStatus.PENDING,
+    };
+
+    const uploadedImages = aiImageUrls?.length
+      ? await Promise.all(
+          aiImageUrls.map(async (url, index) => {
+            const uploaded = await this.cloudinaryService.uploadFromUrl(url);
+
+            return {
+              url: uploaded.secure_url,
+              isThumbnail: index === 0,
+              sortOrder: index,
+            };
+          }),
+        )
+      : [];
+
+    const created = await this.products.create(internalDto, uploadedImages);
+    const response = this.toResponse(created);
+
+    // Trigger vector db sync asynchronously
+    this.triggerAiCoreSync(response);
+
+    return response;
+  }
+
   async update(
     id: number,
     dto: UpdateProductDto,

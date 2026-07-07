@@ -1,3 +1,4 @@
+import { Readable } from 'stream';
 import {
   Body,
   Controller,
@@ -10,7 +11,10 @@ import {
   UploadedFiles,
   UseGuards,
   UseInterceptors,
+  Res,
+  Req,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -29,8 +33,9 @@ import { ProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsNumber } from 'class-validator';
+import { IsArray, IsNumber, IsString } from 'class-validator';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { CreateProductFromAiDto } from './dto/create-product-from-ai.dto';
 
 class DeleteProductsDto {
   @ApiProperty({ type: [Number] })
@@ -39,10 +44,19 @@ class DeleteProductsDto {
   ids!: number[];
 }
 
+class GenerateContentStreamDto {
+  @ApiProperty()
+  @IsString()
+  prompt!: string;
+}
+
 @ApiTags('Products')
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly products: ProductsService) {}
+  constructor(
+    private readonly products: ProductsService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List products' })
@@ -86,6 +100,69 @@ export class ProductsController {
     @Body() dto: CreateProductDto,
   ) {
     return this.products.create(userId, dto, images);
+  }
+
+  @Post('from-ai')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'USER')
+  @ApiBearerAuth()
+  @ApiBody({ type: CreateProductFromAiDto })
+  @ApiOperation({
+    summary: 'Create product from AI generated data (supports image URLs)',
+  })
+  createFromAi(
+    @User('id') userId: number,
+    @Body()
+    dto: CreateProductFromAiDto,
+  ) {
+    return this.products.createFromAi(userId, dto);
+  }
+
+  @Post('generate-content/stream')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'USER')
+  @ApiBearerAuth()
+  @ApiBody({ type: GenerateContentStreamDto })
+  @ApiOperation({ summary: 'Proxy AI Content Generator SSE Stream' })
+  async proxyGenerateContentStream(
+    @Body() body: GenerateContentStreamDto,
+    @Req() req: import('express').Request,
+    @Res() res: import('express').Response,
+  ) {
+    try {
+      const aiCoreUrl =
+        this.configService.get<string>('AI_CORE_URL') ||
+        'http://localhost:8080';
+      const authHeader = req.headers.authorization;
+
+      const response = await fetch(
+        `${aiCoreUrl}/api/v1/content/generate/stream`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authHeader ? { Authorization: authHeader } : {}),
+          },
+          body: JSON.stringify(body),
+        },
+      );
+
+      if (!response.body) {
+        throw new Error('No body in response');
+      }
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      const readable = Readable.fromWeb(
+        response.body as import('stream/web').ReadableStream,
+      );
+      readable.pipe(res);
+    } catch (error) {
+      console.error('Failed to proxy AI stream:', error);
+      res.status(500).json({ error: 'Failed to proxy AI stream' });
+    }
   }
 
   @Patch(':id')
