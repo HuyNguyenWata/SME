@@ -1,98 +1,105 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# SME Backend System 🚀
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## 📖 Overview
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+The SME Backend System is a comprehensive, scalable, and intelligent backend solution designed specifically for Small and Medium Enterprises (SMEs). It empowers businesses with robust product management, automated workflows, and AI-driven content generation capabilities to streamline operations and enhance productivity.
 
-## Description
+Built with modern web technologies, this system is optimized for performance, maintainability, and seamless deployment.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## ✨ Features Supported for SMEs
 
-## Project setup
+Our system provides a tailored suite of functionalities to help small and medium businesses thrive in the digital landscape:
 
-```bash
-$ npm install
-```
+- **📦 Product & Inventory Management:** Create, read, update, and manage products and categories efficiently.
+- **🤖 AI Content Generation:** Deep integration with AI Core to auto-generate marketing materials, product descriptions, and conversational content.
+- **🔄 Automated Workflows (N8N):** Trigger dynamic, automated business workflows via N8N webhooks, saving time on repetitive tasks.
+- **💬 Chat & Conversations:** Built-in conversation management to handle customer interactions or internal AI prompts.
+- **📰 RSS Feed Aggregation:** Monitor and fetch data from multiple RSS sources to keep content fresh and up-to-date.
+- **☁️ Cloud Media Storage:** Direct integration with Cloudinary for seamless and optimized image/video management.
+- **🔐 Secure Authentication:** JWT-based authentication with role-based access control (RBAC) to ensure your enterprise data is kept secure.
 
-## Compile and run the project
+## 🛠 Tech Stack
 
-```bash
-# development
-$ npm run start
+The architecture is built on a highly reliable and modern stack:
 
-# watch mode
-$ npm run start:dev
+- **Framework:** [NestJS](https://nestjs.com/) (Node.js) - Providing a scalable, object-oriented structure.
+- **Database:** PostgreSQL - A powerful, open-source object-relational database.
+- **ORM:** [Prisma](https://www.prisma.io/) - Next-generation Node.js and TypeScript ORM for type-safe database access.
+- **Containerization:** Docker & Docker Compose - Ensuring consistent environments from development to production.
+- **Others:** JWT/Passport for Auth, Cloudinary for media, N8N for workflow automation.
 
-# production mode
-$ npm run start:prod
-```
+## 🚀 Setup & Tutorial (How to run)
 
-## Run tests
+### Prerequisites
+
+- Node.js (v20+ recommended)
+- Docker & Docker Compose
+- PostgreSQL (if not using Docker)
+
+### 1. Environment Configuration
+
+Clone the repository and set up your environment variables:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cp .env.example .env
 ```
 
-## Deployment
+Open the `.env` file and configure the required variables. Example:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+```env
+# Database configuration
+DATABASE_URL="postgresql://postgres:password@sme_db:5432/smedb?schema=public"
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+# App & Security
+PORT=3000
+JWT_SECRET="your-super-secret-key"
+
+# Integrations
+CLOUDINARY_CLOUD_NAME="your_cloud_name"
+AI_CORE_URL="http://localhost:8000"
+N8N_URL="your-n8n-url"
+```
+
+### 2. Running via Docker Compose (Recommended)
+
+The easiest way to run the NestJS API is using Docker Compose. We have provided a heavily optimized multi-stage Dockerfile.
+
+Just run the following command in the root directory:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+docker compose up -d --build
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+- The **NestJS API** will start on port `3000`.
+- Your database is hosted externally, so ensure `DATABASE_URL` in `.env` is correct.
 
-## Resources
+To stop the system:
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+docker compose down
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### 3. Running Locally (Development Mode)
 
-## Support
+If you prefer to run the application locally for active development:
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+1. **Ensure your external Postgres Database is running and accessible**.
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+3. **Generate Prisma Client & Push Schema:**
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+4. **Start the NestJS server:**
+   ```bash
+   npm run start:dev
+   ```
 
-## Stay in touch
+The API will be available at `http://localhost:3000`.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+---
 
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+_For the original NestJS boilerplate documentation, please refer to [nestjs_readme.md](./nestjs_readme.md)._
