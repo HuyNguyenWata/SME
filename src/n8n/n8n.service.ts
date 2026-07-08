@@ -68,8 +68,8 @@ export class N8NService {
     try {
       const form = new FormData();
 
-      form.append('product_id', '26');
-      form.append('note', 'This is a test note');
+      form.append('product_id', dto.productId.toString());
+      form.append('note', dto.note ?? '');
 
       const res = await fetch(
         'https://ai-n8n.watasoft.com/webhook/6518d368-4a77-4ac9-be4a-e33c84589ecc',
@@ -83,12 +83,7 @@ export class N8NService {
         },
       );
 
-      console.log('status:', res.status);
-      console.log('content-type:', res.headers.get('content-type'));
-
       const text = await res.text();
-
-      console.log('body:', text);
 
       if (!res.ok) {
         throw new Error(text);
