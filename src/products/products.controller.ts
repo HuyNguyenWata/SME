@@ -33,7 +33,7 @@ import { ProductQueryDto } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsNumber, IsString } from 'class-validator';
+import { IsArray, IsNumber, IsOptional, IsString } from 'class-validator';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { CreateProductFromAiDto } from './dto/create-product-from-ai.dto';
 
@@ -48,6 +48,37 @@ class GenerateContentStreamDto {
   @ApiProperty()
   @IsString()
   prompt!: string;
+
+  @ApiProperty({
+    type: [String],
+    required: false,
+    description:
+      'Fields to generate. Empty/omitted = generate all. Valid: name, description, specifications, price, sku, images',
+    example: ['description', 'specifications'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  selectedFields?: string[];
+
+  @ApiProperty({
+    type: Object,
+    required: false,
+    description:
+      'Existing product data for edit mode. Keys should match CreateProductDto schema.',
+  })
+  @IsOptional()
+  existingContent?: Record<string, any>;
+
+  @ApiProperty({
+    type: String,
+    required: false,
+    description: "Operation mode: 'create' or 'edit'. Default is 'create'.",
+    enum: ['create', 'edit'],
+  })
+  @IsOptional()
+  @IsString()
+  mode?: 'create' | 'edit';
 }
 
 @ApiTags('Products')
@@ -143,7 +174,16 @@ export class ProductsController {
             'Content-Type': 'application/json',
             ...(authHeader ? { Authorization: authHeader } : {}),
           },
-          body: JSON.stringify(body),
+          body: JSON.stringify({
+            prompt: body.prompt,
+            ...(body.selectedFields?.length
+              ? { selected_fields: body.selectedFields }
+              : {}),
+            ...(body.existingContent
+              ? { existing_content: body.existingContent }
+              : {}),
+            ...(body.mode ? { mode: body.mode } : {}),
+          }),
         },
       );
 
