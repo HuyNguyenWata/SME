@@ -26,11 +26,10 @@ model User {
 }
 
 model Category {
-  id             Int             @id @default(autoincrement())
-  name           String
-  rssSources     RSSSource[]
-  users          User[]
-  newsAPIConfigs NewsAPIConfig[]
+  id         Int         @id @default(autoincrement())
+  name       String
+  rssSources RSSSource[]
+  users      User[]
 
   @@map("Category")
 }
@@ -340,6 +339,14 @@ model SocialCalendar {
   @@map("SocialCalendar")
 }
 
+model NewsCategory {
+  id             Int             @id @default(autoincrement())
+  name           String
+  newsAPIConfigs NewsAPIConfig[]
+
+  @@map("NewsCategory")
+}
+
 model NewsAPIConfig {
   id               Int      @id @default(autoincrement())
   userId           Int      @map("user_id")
@@ -348,16 +355,15 @@ model NewsAPIConfig {
   keyword          String?
   categoryId       Int?     @map("category_id")
   language         String   @default("en")
-  fetchSize        Int      @default(10) @map("fetch_size")
   targetPostCount  Int      @default(10) @map("target_post_count")
-  loopCount        Int      @default(1) @map("loop_count")
+  loopHour         Int      @default(1) @map("loop_hour")
   imageRequirement Int      @default(1) @map("image_requirement")
   isActive         Boolean  @default(true) @map("is_active")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  category Category? @relation(fields: [categoryId], references: [id])
-  user     User      @relation(fields: [userId], references: [id])
+  category NewsCategory? @relation(fields: [categoryId], references: [id])
+  user     User          @relation(fields: [userId], references: [id])
 
   @@map("NewsAPIConfig")
 }
