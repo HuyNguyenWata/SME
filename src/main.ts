@@ -15,7 +15,19 @@ async function bootstrap() {
     origin: process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()) ?? true,
     credentials: true,
   });
-  app.use(helmet({ crossOriginResourcePolicy: false }));
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: false,
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: [`'self'`],
+          styleSrc: [`'self'`, `'unsafe-inline'`],
+          imgSrc: [`'self'`, 'data:', 'validator.swagger.io'],
+          scriptSrc: [`'self'`, `https:`, `'unsafe-inline'`],
+        },
+      },
+    }),
+  );
   app.use(compression());
   app.useGlobalPipes(
     new ValidationPipe({
