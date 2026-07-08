@@ -19,14 +19,9 @@ type WorkflowStartData = {
 @Injectable()
 export class N8NService {
   private readonly logger = new Logger(N8NService.name);
-
-  private readonly baseUrl: string;
-  private readonly apiKey: string;
   private readonly webhookUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.baseUrl = this.configService.getOrThrow<string>('N8N_URL');
-    this.apiKey = this.configService.getOrThrow<string>('N8N_API_KEY');
     this.webhookUrl = this.configService.getOrThrow<string>('N8N_WEBHOOK_URL');
   }
   async publish(dto: PublishDto) {
