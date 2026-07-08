@@ -9,7 +9,10 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import {
+  PaginationQueryDto,
+  SocialPostQueryDto,
+} from '../common/dto/pagination-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { ContentService } from './content.service';
@@ -30,7 +33,7 @@ export class ContentController {
   }
 
   @Get('social-posts')
-  socialPosts(@Query() query: PaginationQueryDto) {
+  socialPosts(@Query() query: SocialPostQueryDto) {
     return this.content.socialPosts(query);
   }
 

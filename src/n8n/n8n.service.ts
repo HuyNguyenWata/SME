@@ -35,8 +35,6 @@ export class N8NService {
   }
   async publish(dto: PublishDto) {
     try {
-      console.log('webhookUrlwebhookUrlwebhookUrlwebhookUrl', this.webhookUrl);
-
       const res = await fetch(this.webhookUrl, {
         method: 'POST',
         headers: {

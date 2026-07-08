@@ -1,6 +1,30 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
+export enum SocialPostStatus {
+  SCHEDULED = 'SCHEDULED',
+  PUBLISHING = 'PUBLISHING',
+  PUBLISHED = 'PUBLISHED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+  SKIPPED = 'SKIPPED',
+}
+
+export const SocialPostStatusFilterValues = [
+  'ALL',
+  ...Object.values(SocialPostStatus),
+] as const;
+
+export type SocialPostStatusFilter =
+  (typeof SocialPostStatusFilterValues)[number];
 
 export class PaginationQueryDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })
@@ -25,4 +49,21 @@ export class PaginationQueryDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc' = 'desc';
+}
+export type PlatformFilter = number | 'ALL';
+export class SocialPostQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    enum: SocialPostStatusFilterValues,
+  })
+  @IsOptional()
+  @IsIn(SocialPostStatusFilterValues)
+  status?: SocialPostStatusFilter;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'ALL') return 'ALL';
+    return Number(value);
+  })
+  platformId?: PlatformFilter;
 }

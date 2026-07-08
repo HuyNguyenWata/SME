@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import {
+  PaginationQueryDto,
+  SocialPostQueryDto,
+} from '../common/dto/pagination-query.dto';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
 import { CreateSocialPostDto } from './dto/create-social-post.dto';
 import {
@@ -60,12 +63,22 @@ export class ContentService {
     });
   }
 
-  async socialPosts(query: PaginationQueryDto) {
+  async socialPosts(query: SocialPostQueryDto) {
     try {
       const page = Number(query.page) || 1;
       const limit = Number(query.limit) || 20;
 
-      const where = {};
+      const where = {
+        ...(query.status &&
+          query.status !== 'ALL' && {
+            status: query.status,
+          }),
+
+        ...(query.platformId &&
+          query.platformId !== 'ALL' && {
+            platformId: Number(query.platformId),
+          }),
+      };
 
       const [items, total] = await Promise.all([
         this.prisma.socialPost.findMany({
@@ -77,28 +90,7 @@ export class ContentService {
           },
           include: {
             platform: true,
-            comments: {
-              orderBy: {
-                createdAt: 'desc',
-              },
-            },
-            generatedContent: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    role: true,
-                  },
-                },
-                socialPosts: {
-                  include: {
-                    platform: true,
-                  },
-                },
-              },
-            },
+            generatedContent: true,
           },
         }),
 
