@@ -20,13 +20,9 @@ type WorkflowStartData = {
 export class N8NService {
   private readonly logger = new Logger(N8NService.name);
   private readonly webhookUrl: string;
-  private readonly webhooCreateContentkUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     this.webhookUrl = this.configService.getOrThrow<string>('N8N_WEBHOOK_URL');
-    this.webhooCreateContentkUrl = this.configService.getOrThrow<string>(
-      'N8N_WEBHOOK_CREATE_CONTENT_URL',
-    );
   }
   async publish(dto: PublishDto) {
     try {
@@ -57,24 +53,21 @@ export class N8NService {
     }
   }
 
-  async createContent(dto: ContentDto) {
+  async createContent({ productId, note }: ContentDto) {
     try {
       const form = new FormData();
 
-      form.append('product_id', dto.productId.toString());
-      form.append('note', dto.note ?? '');
+      form.append('product_id', String(productId));
+      form.append('note', note ?? '');
 
-      const res = await fetch(
-        'https://ai-n8n.watasoft.com/webhook/6518d368-4a77-4ac9-be4a-e33c84589ecc',
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-          },
-          body: form,
-          signal: AbortSignal.timeout(30000),
+      const res = await fetch(this.webhookUrl, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
         },
-      );
+        body: form,
+        signal: AbortSignal.timeout(30000),
+      });
 
       const text = await res.text();
 
@@ -82,7 +75,7 @@ export class N8NService {
         throw new Error(text);
       }
 
-      return JSON.parse(text);
+      return JSON.parse(text) as unknown;
     } catch (error) {
       console.error('createContent error:', error);
       throw error;
