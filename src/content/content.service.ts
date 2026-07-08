@@ -14,6 +14,18 @@ import {
 export class ContentService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getNewsCategories() {
+    const data = await this.prisma.newsCategory.findMany({
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return {
+      data,
+    };
+  }
+
   async calendar(year: number, month: number) {
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 1);

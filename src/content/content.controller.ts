@@ -84,4 +84,9 @@ export class ContentController {
   ) {
     return this.content.calendar(year, month);
   }
+
+  @Get('news-categories')
+  getNewsCategories() {
+    return this.content.getNewsCategories();
+  }
 }
