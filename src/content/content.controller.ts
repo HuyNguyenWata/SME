@@ -33,8 +33,13 @@ export class ContentController {
   }
 
   @Get('social-posts')
-  socialPosts(@Query() query: SocialPostQueryDto) {
-    return this.content.socialPosts(query);
+  mySocialPosts(@Query() query: SocialPostQueryDto) {
+    return this.content.mySocialPosts(query);
+  }
+
+  @Get('ai-social-posts')
+  aiSocialPosts(@Query() query: SocialPostQueryDto) {
+    return this.content.aiSocialPosts(query);
   }
 
   @Post('social-posts')
