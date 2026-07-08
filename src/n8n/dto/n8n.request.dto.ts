@@ -14,3 +14,15 @@ export class PublishDto {
   @IsInt()
   jobId?: number;
 }
+
+export class ContentDto {
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  productId!: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  note?: string;
+}

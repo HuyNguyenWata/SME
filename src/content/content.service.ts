@@ -1,11 +1,56 @@
 import { Injectable } from '@nestjs/common';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import {
+  PaginationQueryDto,
+  SocialPostQueryDto,
+} from '../common/dto/pagination-query.dto';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
 import { CreateSocialPostDto } from './dto/create-social-post.dto';
+import {
+  CreateGeneratedContentDto,
+  CreateSocialCalendarDto,
+} from './dto/create-generated-content.dto';
 
 @Injectable()
 export class ContentService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async calendar(year: number, month: number) {
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 1);
+
+    return this.prisma.socialCalendar.findMany({
+      where: {
+        publishAt: {
+          gte: start,
+          lt: end,
+        },
+      },
+      include: {
+        platform: true,
+        product: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        generatedContent: true,
+      },
+      orderBy: {
+        publishAt: 'asc',
+      },
+    });
+  }
+
+  async findAllSocialPlatform() {
+    return this.prisma.socialPlatform.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: {
+        id: 'asc',
+      },
+    });
+  }
 
   async generated(query: PaginationQueryDto) {
     const page = Number(query.page) || 1;
@@ -18,12 +63,22 @@ export class ContentService {
     });
   }
 
-  async socialPosts(query: PaginationQueryDto) {
+  async socialPosts(query: SocialPostQueryDto) {
     try {
       const page = Number(query.page) || 1;
       const limit = Number(query.limit) || 20;
 
-      const where = {};
+      const where = {
+        ...(query.status &&
+          query.status !== 'ALL' && {
+            status: query.status,
+          }),
+
+        ...(query.platformId &&
+          query.platformId !== 'ALL' && {
+            platformId: Number(query.platformId),
+          }),
+      };
 
       const [items, total] = await Promise.all([
         this.prisma.socialPost.findMany({
@@ -35,28 +90,7 @@ export class ContentService {
           },
           include: {
             platform: true,
-            comments: {
-              orderBy: {
-                createdAt: 'desc',
-              },
-            },
-            generatedContent: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    role: true,
-                  },
-                },
-                socialPosts: {
-                  include: {
-                    platform: true,
-                  },
-                },
-              },
-            },
+            generatedContent: true,
           },
         }),
 
@@ -85,6 +119,89 @@ export class ContentService {
       data: {
         ...dto,
         publishedAt: dto.publishedAt ? new Date(dto.publishedAt) : undefined,
+      },
+    });
+  }
+
+  async createGeneratedContent(dto: CreateGeneratedContentDto) {
+    return this.prisma.generatedContent.create({
+      data: {
+        title: dto.title,
+        relevant: dto.relevant,
+        reason: dto.reason,
+        facebook_post: dto.facebook_post,
+        website_article: dto.website_article,
+        hashtags: dto.hashtags,
+        seo_keywords: dto.seo_keywords,
+
+        SourceArticle: dto.source_article_id
+          ? {
+              connect: {
+                id: dto.source_article_id,
+              },
+            }
+          : undefined,
+
+        user: dto.userId
+          ? {
+              connect: {
+                id: dto.userId,
+              },
+            }
+          : undefined,
+      },
+      include: {
+        SourceArticle: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  async createSocialCalendar(dto: CreateSocialCalendarDto) {
+    return this.prisma.socialCalendar.create({
+      data: {
+        status: dto.status,
+        publishAt: dto.publishAt ? new Date(dto.publishAt) : undefined,
+
+        product: dto.productId
+          ? {
+              connect: {
+                id: dto.productId,
+              },
+            }
+          : undefined,
+
+        campaign: dto.campaignId
+          ? {
+              connect: {
+                id: dto.campaignId,
+              },
+            }
+          : undefined,
+
+        platform: {
+          connect: {
+            id: dto.platformId,
+          },
+        },
+
+        generatedContent: {
+          connect: {
+            id: dto.generatedContentId,
+          },
+        },
+      },
+      include: {
+        product: true,
+        campaign: true,
+        platform: true,
+        generatedContent: true,
       },
     });
   }
