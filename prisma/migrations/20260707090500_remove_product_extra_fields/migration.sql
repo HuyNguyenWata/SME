@@ -1,0 +1,1 @@
+ALTER TABLE "Product" DROP COLUMN IF EXISTS "brand", DROP COLUMN IF EXISTS "warranty", DROP COLUMN IF EXISTS "origin_country", DROP COLUMN IF EXISTS "tags";

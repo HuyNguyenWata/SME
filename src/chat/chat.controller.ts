@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Patch,
   Request,
   Res,
   UseGuards,
@@ -16,6 +17,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { parseId } from '../common/utils/id.util';
 import { ChatService } from './chat.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
+import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import type { Request as ExpressRequest } from 'express';
 
@@ -130,6 +132,19 @@ export class ChatController {
   @ApiOperation({ summary: 'Get single conversation with messages' })
   conversation(@Request() req: AuthRequest, @Param('id') id: string) {
     return this.chat.conversation(parseId(id), req.user.id);
+  }
+
+  // =========================
+  // UPDATE CONVERSATION
+  // =========================
+  @Patch('conversations/:id')
+  @ApiOperation({ summary: 'Update conversation (e.g. clear context product)' })
+  updateConversation(
+    @Request() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() dto: UpdateConversationDto,
+  ) {
+    return this.chat.updateConversation(req.user.id, parseId(id), dto);
   }
 
   // =========================

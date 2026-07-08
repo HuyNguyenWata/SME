@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { CreateConversationDto } from './dto/create-conversation.dto';
+import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { AiCoreClientService } from '../common/services/ai-core-client.service';
 import type {
   AiCoreMessage,
@@ -84,6 +85,30 @@ export class ChatService {
   }
 
   // ==============================
+  // UPDATE CONVERSATION
+  // ==============================
+  async updateConversation(
+    userId: number,
+    id: number,
+    dto: UpdateConversationDto,
+  ) {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id, userId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    return this.prisma.conversation.update({
+      where: { id },
+      data: {
+        contextProductId: dto.contextProductId,
+      },
+    });
+  }
+
+  // ==============================
   // GET SINGLE CONVERSATION
   // ==============================
   async conversation(id: number, userId: number) {
@@ -119,13 +144,24 @@ export class ChatService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
+    let finalContextProductId = conversation.contextProductId;
+    if (dto.contextProductId !== undefined) {
+      finalContextProductId = dto.contextProductId;
+      await this.prisma.conversation.update({
+        where: { id: conversationId },
+        data: { contextProductId: finalContextProductId },
+      });
+    }
+
     // 2. Save user message to DB
     const userMsg = await this.prisma.chat.create({
       data: {
         conversationId,
         role: 'user',
         message: dto.message,
-        metadata: {},
+        metadata: finalContextProductId
+          ? { contextProductId: finalContextProductId }
+          : {},
       },
     });
 
@@ -146,6 +182,10 @@ export class ChatService {
         content: c.message,
       }));
 
+    const extraState = finalContextProductId
+      ? { current_focus_product: finalContextProductId }
+      : {};
+
     const currentMessage: AiCoreMessage = {
       id: String(userMsg.id),
       role: 'user',
@@ -159,12 +199,25 @@ export class ChatService {
         user_id: String(dto.userId),
         recent_messages: recentMessages,
         current_message: currentMessage,
+        extra_state: extraState,
       });
 
       // 5. Extract assistant content from response
       const rawResponse = aiResponse as unknown as Record<string, unknown>;
       const assistantContent = this.extractAssistantContent(rawResponse);
       const metadata = this.buildMetadata(rawResponse);
+
+      const productIds: number[] = [];
+      const regex = /\[PRODUCT:(\d+)\]/g;
+      let match: RegExpExecArray | null;
+      while ((match = regex.exec(assistantContent)) !== null) {
+        if (match[1]) {
+          productIds.push(parseInt(match[1], 10));
+        }
+      }
+      if (productIds.length > 0) {
+        metadata.productIds = productIds;
+      }
 
       // 6. Save assistant message to DB
       const assistantMsg = await this.prisma.chat.create({
@@ -220,13 +273,24 @@ export class ChatService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
+    let finalContextProductId = conversation.contextProductId;
+    if (dto.contextProductId !== undefined) {
+      finalContextProductId = dto.contextProductId;
+      await this.prisma.conversation.update({
+        where: { id: conversationId },
+        data: { contextProductId: finalContextProductId },
+      });
+    }
+
     // 2. Save user message to DB
     const userMsg = await this.prisma.chat.create({
       data: {
         conversationId,
         role: 'user',
         message: dto.message,
-        metadata: {},
+        metadata: finalContextProductId
+          ? { contextProductId: finalContextProductId }
+          : {},
       },
     });
 
@@ -245,6 +309,10 @@ export class ChatService {
         role: c.role as 'user' | 'assistant' | 'system',
         content: c.message,
       }));
+
+    const extraState = finalContextProductId
+      ? { current_focus_product: finalContextProductId }
+      : {};
 
     const currentMessage: AiCoreMessage = {
       id: String(userMsg.id),
@@ -265,6 +333,7 @@ export class ChatService {
         user_id: String(dto.userId),
         recent_messages: recentMessages,
         current_message: currentMessage,
+        extra_state: extraState,
       });
 
       for await (const chunk of stream) {
@@ -298,6 +367,18 @@ export class ChatService {
           isError,
           errorCode,
         );
+
+        const productIds: number[] = [];
+        const regex = /\[PRODUCT:(\d+)\]/g;
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(fullContent)) !== null) {
+          if (match[1]) {
+            productIds.push(parseInt(match[1], 10));
+          }
+        }
+        if (productIds.length > 0) {
+          metadata.productIds = productIds;
+        }
 
         await this.prisma.chat.create({
           data: {
