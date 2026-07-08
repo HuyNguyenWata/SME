@@ -63,7 +63,7 @@ export class ContentService {
     });
   }
 
-  async socialPosts(query: SocialPostQueryDto) {
+  async mySocialPosts(query: SocialPostQueryDto) {
     try {
       const page = Number(query.page) || 1;
       const limit = Number(query.limit) || 20;
@@ -78,6 +78,61 @@ export class ContentService {
           query.platformId !== 'ALL' && {
             platformId: Number(query.platformId),
           }),
+        productId: {
+          not: null,
+        },
+      };
+
+      const [items, total] = await Promise.all([
+        this.prisma.socialPost.findMany({
+          where,
+          skip: (page - 1) * limit,
+          take: limit,
+          orderBy: {
+            createdAt: query.sortOrder ?? 'desc',
+          },
+          include: {
+            platform: true,
+            generatedContent: true,
+          },
+        }),
+
+        this.prisma.socialPost.count({
+          where,
+        }),
+      ]);
+
+      return {
+        items,
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (e) {
+      console.error('SOCIAL POST ERROR:', e);
+      throw e;
+    }
+  }
+
+  async aiSocialPosts(query: SocialPostQueryDto) {
+    try {
+      const page = Number(query.page) || 1;
+      const limit = Number(query.limit) || 20;
+
+      const where = {
+        ...(query.status &&
+          query.status !== 'ALL' && {
+            status: query.status,
+          }),
+
+        ...(query.platformId &&
+          query.platformId !== 'ALL' && {
+            platformId: Number(query.platformId),
+          }),
+        productId: null,
       };
 
       const [items, total] = await Promise.all([
