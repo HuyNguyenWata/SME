@@ -14,6 +14,18 @@ import {
 export class ContentService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getNewsCategories() {
+    const data = await this.prisma.newsCategory.findMany({
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return {
+      data,
+    };
+  }
+
   async calendar(year: number, month: number) {
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 1);
@@ -161,6 +173,72 @@ export class ContentService {
           limit,
           total,
           totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (e) {
+      console.error('SOCIAL POST ERROR:', e);
+      throw e;
+    }
+  }
+
+  async allMySocialPosts() {
+    try {
+      const where = {
+        productId: {
+          not: null,
+        },
+      };
+
+      const [items, total] = await Promise.all([
+        this.prisma.socialPost.findMany({
+          where,
+          include: {
+            platform: true,
+            generatedContent: true,
+          },
+        }),
+
+        this.prisma.socialPost.count({
+          where,
+        }),
+      ]);
+
+      return {
+        items,
+        meta: {
+          total,
+        },
+      };
+    } catch (e) {
+      console.error('SOCIAL POST ERROR:', e);
+      throw e;
+    }
+  }
+
+  async allAiSocialPosts() {
+    try {
+      const where = {
+        productId: null,
+      };
+
+      const [items, total] = await Promise.all([
+        this.prisma.socialPost.findMany({
+          where,
+          include: {
+            platform: true,
+            generatedContent: true,
+          },
+        }),
+
+        this.prisma.socialPost.count({
+          where,
+        }),
+      ]);
+
+      return {
+        items,
+        meta: {
+          total,
         },
       };
     } catch (e) {

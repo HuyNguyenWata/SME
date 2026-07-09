@@ -105,6 +105,14 @@ export class ProductsController {
     return this.products.getStockForecast(d);
   }
 
+  @Get('stats/monthly')
+  @ApiOperation({
+    summary: 'Get current month vs previous month product statistics',
+  })
+  getMonthlyStats() {
+    return this.products.getMonthlyStats();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get product by id' })
   @ApiParam({ name: 'id', type: Number })
