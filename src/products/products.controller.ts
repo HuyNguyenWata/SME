@@ -95,6 +95,16 @@ export class ProductsController {
     return this.products.findAll(query);
   }
 
+  @Get('stock-forecast')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get stock depletion forecast for all products' })
+  getStockForecast(@Query('days') days?: string) {
+    const d = days ? parseInt(days, 10) : 30;
+    return this.products.getStockForecast(d);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get product by id' })
   @ApiParam({ name: 'id', type: Number })

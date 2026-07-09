@@ -384,4 +384,121 @@ export class ProductsService {
       },
     };
   }
+
+  async getStockForecast(lookbackDays: number = 30) {
+    const products = await this.prisma.product.findMany({
+      where: { quantity: { gt: 0 }, hasBeenOut: true },
+      select: {
+        id: true,
+        name: true,
+        quantity: true,
+        lowStockThreshold: true,
+        unit: true,
+      },
+    });
+
+    if (products.length === 0) {
+      return {
+        items: [],
+        summary: { criticalCount: 0, warningCount: 0, safeCount: 0 },
+      };
+    }
+
+    const start = new Date();
+    start.setDate(start.getDate() - lookbackDays);
+    start.setHours(0, 0, 0, 0);
+
+    const histories = await this.prisma.inventoryHistory.findMany({
+      where: {
+        type: 'OUT',
+        createdAt: { gte: start },
+        productId: { in: products.map((p) => p.id) },
+      },
+      select: {
+        productId: true,
+        changeQuantity: true,
+      },
+    });
+
+    const outMap = new Map<number, number>();
+    for (const h of histories) {
+      outMap.set(
+        h.productId,
+        (outMap.get(h.productId) ?? 0) + h.changeQuantity,
+      );
+    }
+
+    const formatDate = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    const forecastDays = 30;
+    let criticalCount = 0;
+    let warningCount = 0;
+    let safeCount = 0;
+
+    const items = products
+      .map((p) => {
+        const totalOut = outMap.get(p.id) ?? 0;
+        const avgDailyConsumption =
+          totalOut > 0 ? +(totalOut / lookbackDays).toFixed(2) : 0;
+
+        const estimatedDaysLeft =
+          avgDailyConsumption > 0
+            ? Math.round(p.quantity / avgDailyConsumption)
+            : null;
+
+        const severity: 'critical' | 'warning' | 'safe' =
+          estimatedDaysLeft === null
+            ? 'safe'
+            : estimatedDaysLeft < 7
+              ? 'critical'
+              : estimatedDaysLeft < 14
+                ? 'warning'
+                : 'safe';
+
+        if (severity === 'critical') criticalCount++;
+        else if (severity === 'warning') warningCount++;
+        else safeCount++;
+
+        const projectedInventory: { date: string; value: number }[] = [];
+        const today = new Date();
+        for (let i = 0; i <= forecastDays; i++) {
+          const d = new Date(today);
+          d.setDate(today.getDate() + i);
+          const projected = Math.max(
+            0,
+            Math.round(p.quantity - avgDailyConsumption * i),
+          );
+          projectedInventory.push({ date: formatDate(d), value: projected });
+        }
+
+        return {
+          productId: p.id,
+          productName: p.name,
+          currentQuantity: p.quantity,
+          lowStockThreshold: p.lowStockThreshold,
+          unit: p.unit,
+          avgDailyConsumption,
+          estimatedDaysLeft,
+          severity,
+          projectedInventory,
+        };
+      })
+      .sort((a, b) => {
+        if (a.estimatedDaysLeft === null && b.estimatedDaysLeft === null)
+          return 0;
+        if (a.estimatedDaysLeft === null) return 1;
+        if (b.estimatedDaysLeft === null) return -1;
+        return a.estimatedDaysLeft - b.estimatedDaysLeft;
+      });
+
+    return {
+      items,
+      summary: { criticalCount, warningCount, safeCount },
+    };
+  }
 }
