@@ -20,11 +20,13 @@ import type {
 // INPUT TYPES
 // ==============================
 type SendMessageInput = SendMessageDto & {
-  userId: number;
+  userId?: number;
+  guestId?: string;
 };
 
 type CreateConversationInput = CreateConversationDto & {
-  userId: number;
+  userId?: number;
+  guestId?: string;
 };
 
 /** Number of recent messages to send as context to AI-Core */
@@ -42,9 +44,10 @@ export class ChatService {
   // ==============================
   // LIST CONVERSATIONS
   // ==============================
-  conversations(userId?: number) {
+  conversations(userId?: number, guestId?: string) {
+    const whereClause = userId ? { userId } : { guestId, userId: null };
     return this.prisma.conversation.findMany({
-      where: userId ? { userId } : undefined,
+      where: whereClause,
       include: {
         chats: {
           select: {
@@ -69,6 +72,7 @@ export class ChatService {
       data: {
         title: dto.title ?? 'New Chat',
         userId: dto.userId,
+        guestId: dto.guestId,
       },
       include: {
         chats: {
@@ -88,12 +92,14 @@ export class ChatService {
   // UPDATE CONVERSATION
   // ==============================
   async updateConversation(
-    userId: number,
+    userId: number | undefined,
+    guestId: string | undefined,
     id: number,
     dto: UpdateConversationDto,
   ) {
+    const whereClause = userId ? { id, userId } : { id, guestId, userId: null };
     const conversation = await this.prisma.conversation.findFirst({
-      where: { id, userId },
+      where: whereClause,
     });
 
     if (!conversation) {
@@ -111,12 +117,10 @@ export class ChatService {
   // ==============================
   // GET SINGLE CONVERSATION
   // ==============================
-  async conversation(id: number, userId: number) {
+  async conversation(id: number, userId?: number, guestId?: string) {
+    const whereClause = userId ? { id, userId } : { id, guestId, userId: null };
     return this.prisma.conversation.findFirst({
-      where: {
-        id,
-        userId,
-      },
+      where: whereClause,
       include: {
         chats: {
           select: {
@@ -139,8 +143,9 @@ export class ChatService {
   // ==============================
   async send(conversationId: number, dto: SendMessageInput) {
     // 1. Verify conversation exists
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id: conversationId },
+    const whereClause = dto.userId ? { id: conversationId, userId: dto.userId } : { id: conversationId, guestId: dto.guestId, userId: null };
+    const conversation = await this.prisma.conversation.findFirst({
+      where: whereClause,
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
@@ -196,7 +201,7 @@ export class ChatService {
     try {
       const aiResponse = await this.aiCore.chatInternal({
         conversation_id: String(conversationId),
-        user_id: String(dto.userId),
+        user_id: String(dto.userId || dto.guestId),
         recent_messages: recentMessages,
         current_message: currentMessage,
         extra_state: extraState,
@@ -268,8 +273,9 @@ export class ChatService {
     dto: SendMessageInput,
   ): AsyncGenerator<string> {
     // 1. Verify conversation exists
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id: conversationId },
+    const whereClause = dto.userId ? { id: conversationId, userId: dto.userId } : { id: conversationId, guestId: dto.guestId, userId: null };
+    const conversation = await this.prisma.conversation.findFirst({
+      where: whereClause,
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
@@ -330,7 +336,7 @@ export class ChatService {
     try {
       const stream = this.aiCore.chatStreamInternal({
         conversation_id: String(conversationId),
-        user_id: String(dto.userId),
+        user_id: String(dto.userId || dto.guestId),
         recent_messages: recentMessages,
         current_message: currentMessage,
         extra_state: extraState,
@@ -417,9 +423,10 @@ export class ChatService {
   // ==============================
   // DELETE CONVERSATION
   // ==============================
-  async removeConversation(id: number) {
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id },
+  async removeConversation(id: number, userId?: number, guestId?: string) {
+    const whereClause = userId ? { id, userId } : { id, guestId, userId: null };
+    const conversation = await this.prisma.conversation.findFirst({
+      where: whereClause,
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
