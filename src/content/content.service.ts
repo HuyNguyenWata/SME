@@ -46,6 +46,11 @@ export class ContentService {
           },
         },
         generatedContent: true,
+        socialPosts: {
+          include: {
+            platform: true,
+          },
+        },
       },
       orderBy: {
         publishAt: 'asc',
