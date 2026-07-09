@@ -26,6 +26,9 @@ export class N8NController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   async instantSubmit(@Req() req) {
-    return this.n8NService.instantSubmit(req.user.id);
+    console.log(req.user);
+    return this.n8NService.instantSubmit({
+      userId: req.user.id,
+    });
   }
 }
