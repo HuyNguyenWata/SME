@@ -1,11 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsDateString,
+  IsEnum,
   IsIn,
   IsInt,
   IsOptional,
   IsString,
 } from 'class-validator';
+import { SocialPostStatus } from 'src/common/dto/pagination-query.dto';
 
 export class CreateSocialPostDto {
   @ApiProperty()
@@ -26,7 +28,7 @@ export class CreateSocialPostDto {
   @IsDateString()
   publishedAt?: string;
 
-  @ApiProperty({ enum: ['DRAFT', 'SCHEDULED', 'PUBLISHED', 'FAILED'] })
-  @IsIn(['DRAFT', 'SCHEDULED', 'PUBLISHED', 'FAILED'])
-  status!: 'DRAFT' | 'SCHEDULED' | 'PUBLISHED' | 'FAILED';
+  @ApiProperty({ enum: SocialPostStatus })
+  @IsEnum(SocialPostStatus)
+  status!: SocialPostStatus;
 }
