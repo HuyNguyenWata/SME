@@ -42,6 +42,22 @@ export class ContentController {
     return this.content.aiSocialPosts(query);
   }
 
+  @Get('all-social-posts')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  allMySocialPosts() {
+    return this.content.allMySocialPosts();
+  }
+
+  @Get('all-ai-social-posts')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  allAiSocialPosts() {
+    return this.content.allAiSocialPosts();
+  }
+
   @Post('social-posts')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')

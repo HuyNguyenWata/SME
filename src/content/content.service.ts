@@ -181,6 +181,72 @@ export class ContentService {
     }
   }
 
+  async allMySocialPosts() {
+    try {
+      const where = {
+        productId: {
+          not: null,
+        },
+      };
+
+      const [items, total] = await Promise.all([
+        this.prisma.socialPost.findMany({
+          where,
+          include: {
+            platform: true,
+            generatedContent: true,
+          },
+        }),
+
+        this.prisma.socialPost.count({
+          where,
+        }),
+      ]);
+
+      return {
+        items,
+        meta: {
+          total,
+        },
+      };
+    } catch (e) {
+      console.error('SOCIAL POST ERROR:', e);
+      throw e;
+    }
+  }
+
+  async allAiSocialPosts() {
+    try {
+      const where = {
+        productId: null,
+      };
+
+      const [items, total] = await Promise.all([
+        this.prisma.socialPost.findMany({
+          where,
+          include: {
+            platform: true,
+            generatedContent: true,
+          },
+        }),
+
+        this.prisma.socialPost.count({
+          where,
+        }),
+      ]);
+
+      return {
+        items,
+        meta: {
+          total,
+        },
+      };
+    } catch (e) {
+      console.error('SOCIAL POST ERROR:', e);
+      throw e;
+    }
+  }
+
   createSocialPost(dto: CreateSocialPostDto) {
     return this.prisma.socialPost.create({
       data: {

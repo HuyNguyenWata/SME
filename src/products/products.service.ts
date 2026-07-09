@@ -17,6 +17,131 @@ export class ProductsService {
     private readonly prisma: PrismaService,
   ) {}
 
+  async getMonthlyStats() {
+    const now = new Date();
+
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const previousMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1,
+    );
+
+    const [currentMonth, previousMonth] = await Promise.all([
+      this.prisma.product.count({
+        where: {
+          createdAt: {
+            gte: currentMonthStart,
+            lt: nextMonthStart,
+          },
+        },
+      }),
+      this.prisma.product.count({
+        where: {
+          createdAt: {
+            gte: previousMonthStart,
+            lt: currentMonthStart,
+          },
+        },
+      }),
+    ]);
+
+    const diff = currentMonth - previousMonth;
+
+    return {
+      currentMonth,
+      previousMonth,
+      difference: diff,
+      percentage:
+        previousMonth === 0
+          ? currentMonth > 0
+            ? 100
+            : 0
+          : Number(
+              (((currentMonth - previousMonth) / previousMonth) * 100).toFixed(
+                1,
+              ),
+            ),
+      trend: diff > 0 ? 'up' : diff < 0 ? 'down' : 'equal',
+    };
+  }
+
+  async getProductMonthlyStats() {
+    const now = new Date();
+
+    const currentMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1,
+      0,
+      0,
+      0,
+      0,
+    );
+
+    const nextMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      1,
+      0,
+      0,
+      0,
+      0,
+    );
+
+    const previousMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1,
+      0,
+      0,
+      0,
+      0,
+    );
+
+    const [currentMonth, previousMonth] = await Promise.all([
+      this.prisma.product.count({
+        where: {
+          createdAt: {
+            gte: currentMonthStart,
+            lt: nextMonthStart,
+          },
+        },
+      }),
+
+      this.prisma.product.count({
+        where: {
+          createdAt: {
+            gte: previousMonthStart,
+            lt: currentMonthStart,
+          },
+        },
+      }),
+    ]);
+
+    const difference = currentMonth - previousMonth;
+
+    const percentage =
+      previousMonth === 0
+        ? currentMonth > 0
+          ? 100
+          : 0
+        : Number(
+            (((currentMonth - previousMonth) / previousMonth) * 100).toFixed(1),
+          );
+
+    return {
+      currentMonth,
+      previousMonth,
+      difference,
+      percentage,
+      trend: difference > 0 ? 'up' : difference < 0 ? 'down' : 'equal',
+    };
+  }
+
   private triggerAiCoreSync(
     product: Record<string, unknown>,
     changedFields?: string[],

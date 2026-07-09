@@ -1,6 +1,10 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { N8NService } from './n8n.service';
 import { ContentDto, PublishDto } from './dto/n8n.request.dto';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 
 @Controller('n8n')
 export class N8NController {
@@ -15,5 +19,13 @@ export class N8NController {
   @Post('content')
   async content(@Body() dto: ContentDto) {
     return this.n8NService.createContent(dto);
+  }
+
+  @Post('instant')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  async instantSubmit(@Req() req) {
+    return this.n8NService.instantSubmit(req.user.id);
   }
 }

@@ -26,3 +26,9 @@ export class ContentDto {
   @Type(() => String)
   note?: string;
 }
+export class InstantSubmitDto {
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  userId!: number;
+}
