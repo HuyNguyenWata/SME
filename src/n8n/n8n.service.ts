@@ -4,7 +4,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PublishDto, ContentDto } from './dto/n8n.request.dto';
+import {
+  PublishDto,
+  ContentDto,
+  InstantSubmitDto,
+} from './dto/n8n.request.dto';
 
 type ApiResponse<T = unknown> = {
   statusCode: number;
@@ -20,10 +24,14 @@ type WorkflowStartData = {
 export class N8NService {
   private readonly logger = new Logger(N8NService.name);
   private readonly webhookUrl: string;
-
+  private readonly webhooInstant: string;
   constructor(private readonly configService: ConfigService) {
     this.webhookUrl = this.configService.getOrThrow<string>('N8N_WEBHOOK_URL');
+    this.webhooInstant = this.configService.getOrThrow<string>(
+      'N8N_WEBHOOK_URL_INSTANT',
+    );
   }
+
   async publish(dto: PublishDto) {
     try {
       const res = await fetch(this.webhookUrl, {
@@ -61,6 +69,34 @@ export class N8NService {
       form.append('note', note ?? '');
 
       const res = await fetch(this.webhookUrl, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+        },
+        body: form,
+        signal: AbortSignal.timeout(30000),
+      });
+
+      const text = await res.text();
+
+      if (!res.ok) {
+        throw new Error(text);
+      }
+
+      return JSON.parse(text) as unknown;
+    } catch (error) {
+      console.error('createContent error:', error);
+      throw error;
+    }
+  }
+
+  async instantSubmit({ userId }: InstantSubmitDto) {
+    try {
+      const form = new FormData();
+
+      form.append('user_id', String(userId));
+
+      const res = await fetch(this.webhooInstant, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
