@@ -2,12 +2,12 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 export enum SocialPostStatus {
-  SCHEDULED = 'scheduled',
-  PUBLISHING = 'publishing',
-  PUBLISHED = 'published',
-  FAILED = 'failed',
-  CANCELLED = 'cancelled',
-  SKIPPED = 'skipped',
+  SCHEDULED = 'SCHEDULED',
+  PUBLISHING = 'PUBLISHING',
+  PUBLISHED = 'PUBLISHED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+  SKIPPED = 'SKIPPED',
 }
 
 export const SocialPostStatusFilterValues = [
