@@ -139,19 +139,36 @@ export class ProductsService {
       embeddingStatus: ProductEmbeddingStatus.PENDING,
     };
 
-    const uploadedImages = aiImageUrls?.length
-      ? await Promise.all(
-          aiImageUrls.map(async (url, index) => {
-            const uploaded = await this.cloudinaryService.uploadFromUrl(url);
+    const uploadedImages: {
+      url: string;
+      isThumbnail: boolean;
+      sortOrder: number;
+    }[] = [];
+    if (aiImageUrls?.length) {
+      const uploadPromises = aiImageUrls.map((url) =>
+        this.cloudinaryService.uploadFromUrl(url).catch((err) => {
+          console.error(
+            `Failed to upload image from URL: ${url}`,
+            err instanceof Error ? err.message : String(err),
+          );
+          return null;
+        }),
+      );
 
-            return {
-              url: uploaded.secure_url,
-              isThumbnail: index === 0,
-              sortOrder: index,
-            };
-          }),
-        )
-      : [];
+      const results = await Promise.all(uploadPromises);
+
+      let index = 0;
+      for (const result of results) {
+        if (result) {
+          uploadedImages.push({
+            url: result.secure_url,
+            isThumbnail: index === 0,
+            sortOrder: index,
+          });
+          index++;
+        }
+      }
+    }
 
     const created = await this.products.create(internalDto, uploadedImages);
     const response = this.toResponse(created);
