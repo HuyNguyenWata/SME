@@ -128,7 +128,12 @@ export class ProductsRepository {
           status: dto.status,
           embeddingStatus: dto.embeddingStatus,
           specifications: dto.specifications as Prisma.InputJsonValue,
-          expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+          expiryDate:
+            dto.expiryDate === ''
+              ? null
+              : dto.expiryDate
+                ? new Date(dto.expiryDate)
+                : undefined,
           lowStockThreshold: dto.lowStockThreshold,
 
           images: images.length
@@ -195,7 +200,12 @@ export class ProductsRepository {
             status: dto.status,
             embeddingStatus: dto.embeddingStatus,
             specifications: dto.specifications as Prisma.InputJsonValue,
-            expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+            expiryDate:
+              dto.expiryDate === ''
+                ? null
+                : dto.expiryDate
+                  ? new Date(dto.expiryDate)
+                  : undefined,
             lowStockThreshold: dto.lowStockThreshold,
           },
         });

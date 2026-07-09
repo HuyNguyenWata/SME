@@ -8,6 +8,7 @@ import {
   IsString,
   IsObject,
   IsDateString,
+  ValidateIf,
   Min,
 } from 'class-validator';
 
@@ -79,6 +80,7 @@ export class CreateProductDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @ValidateIf((o) => o.expiryDate !== '')
   @IsDateString()
   expiryDate?: string | Date;
 }
