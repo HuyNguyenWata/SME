@@ -257,6 +257,7 @@ export class ProductsService {
     unit: string;
     sku: string | null;
     status: string;
+    expiryDate?: Date | null;
     createdAt: Date;
     updatedAt: Date;
     specifications?: Prisma.JsonValue;
@@ -295,6 +296,7 @@ export class ProductsService {
       sku: product.sku,
       status: product.status,
       embeddingStatus: product.embeddingStatus,
+      expiryDate: product.expiryDate,
       images: product.images ?? [],
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,

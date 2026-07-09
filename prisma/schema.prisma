@@ -51,6 +51,7 @@ model Product {
   specifications     Json?
   hasBeenOut         Boolean            @default(false) @map("has_been_out")
   lowStockThreshold  Int                @default(10) @map("low_stock_threshold")
+  expiryDate         DateTime?          @map("expiry_date")
   inventoryHistories InventoryHistory[]
   marketingProducts  MarketingProduct[]
   user               User               @relation(fields: [userId], references: [id])

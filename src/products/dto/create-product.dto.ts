@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   IsObject,
+  IsDateString,
   Min,
 } from 'class-validator';
 
@@ -75,4 +76,9 @@ export class CreateProductDto {
   })
   @IsOptional()
   images?: any[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  expiryDate?: string | Date;
 }
