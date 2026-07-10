@@ -18,6 +18,7 @@ import { SocialPlatformModule } from './social-platform/social-platform.module';
 import { AiJobModule } from './ai-job/ai-job.module';
 import { N8NModule } from './n8n/n8n.module';
 import { AiConfigModule } from './ai-config/ai-config.module';
+import { SocialAccountModule } from './social-account/social-account.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { AiConfigModule } from './ai-config/ai-config.module';
     AiJobModule,
     N8NModule,
     AiConfigModule,
+    SocialAccountModule,
   ],
   controllers: [AppController],
   providers: [AppService],

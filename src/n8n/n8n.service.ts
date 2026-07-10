@@ -26,7 +26,9 @@ export class N8NService {
   private readonly webhookUrl: string;
   private readonly webhooInstant: string;
   constructor(private readonly configService: ConfigService) {
-    this.webhookUrl = this.configService.getOrThrow<string>('N8N_WEBHOOK_URL');
+    this.webhookUrl = this.configService.getOrThrow<string>(
+      'N8N_WEBHOOK_CREATE_CONTENT_URL',
+    );
     this.webhooInstant = this.configService.getOrThrow<string>(
       'N8N_WEBHOOK_URL_INSTANT',
     );

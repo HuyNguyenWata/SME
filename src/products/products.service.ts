@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/PrismaService/prisma.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 import { ProductEmbeddingStatus } from './enums/product-status.enum';
+import { ProductAlertQueryDto } from './dto/product-alert-query.dto';
 
 @Injectable()
 export class ProductsService {
@@ -626,6 +627,118 @@ export class ProductsService {
     return {
       items,
       summary: { criticalCount, warningCount, safeCount },
+    };
+  }
+
+  async getAlerts(query: ProductAlertQueryDto) {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      severity = 'all',
+      status = 'all',
+    } = query;
+
+    const products = await this.prisma.product.findMany({
+      select: {
+        id: true,
+        name: true,
+        quantity: true,
+        lowStockThreshold: true,
+        unit: true,
+        updatedAt: true,
+      },
+    });
+
+    let alerts = products
+      .filter((p) => p.quantity <= p.lowStockThreshold)
+      .map((p) => ({
+        productId: p.id,
+        productName: p.name,
+        message: `${p.quantity} ${p.unit} remaining`,
+        severity:
+          p.quantity === 0
+            ? ('high' as const)
+            : p.quantity <= Math.ceil(p.lowStockThreshold / 2)
+              ? ('medium' as const)
+              : ('low' as const),
+        createdAt: p.updatedAt,
+        resolved: false,
+      }));
+
+    // Search
+    if (search?.trim()) {
+      const keyword = search.trim().toLowerCase();
+
+      alerts = alerts.filter(
+        (a) =>
+          a.productName.toLowerCase().includes(keyword) ||
+          a.message.toLowerCase().includes(keyword),
+      );
+    }
+
+    // Severity
+    if (severity !== 'all') {
+      alerts = alerts.filter((a) => a.severity === severity);
+    }
+
+    // Status
+    if (status === 'active') {
+      alerts = alerts.filter((a) => !a.resolved);
+    }
+
+    if (status === 'resolved') {
+      alerts = alerts.filter((a) => a.resolved);
+    }
+
+    // ===== Summary (trước pagination) =====
+    const summary = {
+      active: alerts.filter((a) => !a.resolved).length,
+      resolved: alerts.filter((a) => a.resolved).length,
+      high: alerts.filter((a) => a.severity === 'high').length,
+      medium: alerts.filter((a) => a.severity === 'medium').length,
+      low: alerts.filter(
+        (a) => a.severity !== 'high' && a.severity !== 'medium',
+      ).length,
+      total: alerts.length,
+    };
+
+    // Sort
+    const severityOrder = {
+      high: 3,
+      medium: 2,
+      low: 1,
+    };
+
+    alerts.sort((a, b) => {
+      const severityDiff =
+        severityOrder[b.severity] - severityOrder[a.severity];
+
+      if (severityDiff !== 0) {
+        return severityDiff;
+      }
+
+      if (a.resolved !== b.resolved) {
+        return Number(a.resolved) - Number(b.resolved);
+      }
+
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    const total = alerts.length;
+    const totalPages = Math.ceil(total / limit);
+
+    const items = alerts.slice((page - 1) * limit, page * limit);
+
+    return {
+      items,
+      summary,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
     };
   }
 }
