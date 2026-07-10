@@ -8,12 +8,19 @@ import {
   Patch,
   Request,
   Res,
+  Headers,
+  UnauthorizedException,
   UseGuards,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+  ApiHeader,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { parseId } from '../common/utils/id.util';
 import { ChatService } from './chat.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
@@ -25,7 +32,7 @@ import type { Request as ExpressRequest } from 'express';
 // TYPE REQUEST (FIX ESLINT)
 // =========================
 interface AuthRequest extends ExpressRequest {
-  user: {
+  user?: {
     id: number;
     email: string;
   };
@@ -33,18 +40,34 @@ interface AuthRequest extends ExpressRequest {
 
 @ApiTags('Chat')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(OptionalJwtAuthGuard)
 @Controller('chat')
 export class ChatController {
   constructor(private readonly chat: ChatService) {}
+
+  private validateAuth(req: AuthRequest, guestId?: string) {
+    if (!req.user?.id && !guestId) {
+      throw new UnauthorizedException('Authentication or guest ID required');
+    }
+    return { userId: req.user?.id, guestId };
+  }
 
   // =========================
   // GET CONVERSATIONS
   // =========================
   @Get('conversations')
   @ApiOperation({ summary: 'Get user conversations' })
-  conversations(@Request() req: AuthRequest) {
-    return this.chat.conversations(req.user.id);
+  @ApiHeader({
+    name: 'x-guest-id',
+    required: false,
+    description: 'Guest Session ID',
+  })
+  conversations(
+    @Request() req: AuthRequest,
+    @Headers('x-guest-id') guestId?: string,
+  ) {
+    const { userId } = this.validateAuth(req, guestId);
+    return this.chat.conversations(userId, guestId);
   }
 
   // =========================
@@ -52,13 +75,17 @@ export class ChatController {
   // =========================
   @Post('conversations')
   @ApiOperation({ summary: 'Create conversation' })
+  @ApiHeader({ name: 'x-guest-id', required: false })
   createConversation(
     @Request() req: AuthRequest,
     @Body() dto: CreateConversationDto,
+    @Headers('x-guest-id') headerGuestId?: string,
   ) {
+    const { userId, guestId } = this.validateAuth(req, headerGuestId);
     return this.chat.createConversation({
       ...dto,
-      userId: req.user.id,
+      userId,
+      guestId,
     });
   }
 
@@ -69,14 +96,18 @@ export class ChatController {
   @ApiOperation({
     summary: 'Send chat message and get AI response',
   })
+  @ApiHeader({ name: 'x-guest-id', required: false })
   send(
     @Request() req: AuthRequest,
     @Param('id') id: string,
     @Body() dto: SendMessageDto,
+    @Headers('x-guest-id') headerGuestId?: string,
   ) {
+    const { userId, guestId } = this.validateAuth(req, headerGuestId);
     return this.chat.send(parseId(id), {
       ...dto,
-      userId: req.user.id,
+      userId,
+      guestId,
     });
   }
 
@@ -87,12 +118,15 @@ export class ChatController {
   @ApiOperation({
     summary: 'Send chat message and stream AI response (SSE)',
   })
+  @ApiHeader({ name: 'x-guest-id', required: false })
   async sendStream(
     @Request() req: AuthRequest,
     @Param('id') id: string,
     @Body() dto: SendMessageDto,
     @Res() res: Response,
+    @Headers('x-guest-id') headerGuestId?: string,
   ) {
+    const { userId, guestId } = this.validateAuth(req, headerGuestId);
     // Set SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -105,7 +139,8 @@ export class ChatController {
     try {
       const stream = this.chat.sendStream(conversationId, {
         ...dto,
-        userId: req.user.id,
+        userId,
+        guestId,
       });
 
       for await (const chunk of stream) {
@@ -130,8 +165,14 @@ export class ChatController {
   // =========================
   @Get('conversations/:id')
   @ApiOperation({ summary: 'Get single conversation with messages' })
-  conversation(@Request() req: AuthRequest, @Param('id') id: string) {
-    return this.chat.conversation(parseId(id), req.user.id);
+  @ApiHeader({ name: 'x-guest-id', required: false })
+  conversation(
+    @Request() req: AuthRequest,
+    @Param('id') id: string,
+    @Headers('x-guest-id') headerGuestId?: string,
+  ) {
+    const { userId, guestId } = this.validateAuth(req, headerGuestId);
+    return this.chat.conversation(parseId(id), userId, guestId);
   }
 
   // =========================
@@ -139,12 +180,15 @@ export class ChatController {
   // =========================
   @Patch('conversations/:id')
   @ApiOperation({ summary: 'Update conversation (e.g. clear context product)' })
+  @ApiHeader({ name: 'x-guest-id', required: false })
   updateConversation(
     @Request() req: AuthRequest,
     @Param('id') id: string,
     @Body() dto: UpdateConversationDto,
+    @Headers('x-guest-id') headerGuestId?: string,
   ) {
-    return this.chat.updateConversation(req.user.id, parseId(id), dto);
+    const { userId, guestId } = this.validateAuth(req, headerGuestId);
+    return this.chat.updateConversation(userId, guestId, parseId(id), dto);
   }
 
   // =========================
@@ -152,8 +196,14 @@ export class ChatController {
   // =========================
   @Delete('conversations/:id')
   @ApiOperation({ summary: 'Delete conversation' })
-  removeConversation(@Request() req: AuthRequest, @Param('id') id: string) {
-    return this.chat.removeConversation(parseId(id));
+  @ApiHeader({ name: 'x-guest-id', required: false })
+  removeConversation(
+    @Request() req: AuthRequest,
+    @Param('id') id: string,
+    @Headers('x-guest-id') headerGuestId?: string,
+  ) {
+    const { userId, guestId } = this.validateAuth(req, headerGuestId);
+    return this.chat.removeConversation(parseId(id), userId, guestId);
   }
 
   @Get('analytics')

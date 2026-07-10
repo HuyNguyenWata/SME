@@ -91,16 +91,18 @@ model ProductComment {
 
 model Conversation {
   id               Int      @id @default(autoincrement())
-  userId           Int      @map("user_id")
+  userId           Int?     @map("user_id")
+  guestId          String?  @map("guest_id")
   title            String
   createdAt        DateTime @default(now()) @map("created_at")
   summary          String?
   updatedAt        DateTime @updatedAt @map("updated_at")
   contextProductId Int?     @map("context_product_id")
   chats            Chat[]
-  user             User     @relation(fields: [userId], references: [id])
+  user             User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([guestId])
   @@map("Conversation")
 }
 

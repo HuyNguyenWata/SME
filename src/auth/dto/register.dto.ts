@@ -30,4 +30,8 @@ export class RegisterDto {
   @IsOptional()
   @IsInt()
   categoryId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  guestId?: string;
 }

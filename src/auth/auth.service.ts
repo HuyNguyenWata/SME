@@ -36,6 +36,13 @@ export class AuthService {
       },
     });
 
+    if (dto.guestId) {
+      await this.prisma.conversation.updateMany({
+        where: { guestId: dto.guestId },
+        data: { userId: user.id, guestId: null },
+      });
+    }
+
     return this.createTokenResponse(user);
   }
 
@@ -50,6 +57,13 @@ export class AuthService {
     console.log(hash);
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
+
+    if (dto.guestId) {
+      await this.prisma.conversation.updateMany({
+        where: { guestId: dto.guestId },
+        data: { userId: user.id, guestId: null },
+      });
+    }
 
     return this.createTokenResponse(user);
   }
