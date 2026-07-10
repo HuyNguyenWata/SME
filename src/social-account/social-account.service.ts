@@ -1,8 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-
 import { CreateSocialAccountDto } from './dto/create-social-account.dto';
 import { UpdateSocialAccountDto } from './dto/update-social-account.dto';
-
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
 
 type CreateSocialAccountPayload = CreateSocialAccountDto & {
@@ -14,21 +12,25 @@ export class SocialAccountService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(userId?: number) {
-    return this.prisma.socialAccount.findMany({
-      where: userId
-        ? {
-            userId,
-          }
-        : undefined,
+    try {
+      return this.prisma.socialAccount.findMany({
+        where: userId
+          ? {
+              userId,
+            }
+          : undefined,
 
-      include: {
-        platform: true,
-      },
+        include: {
+          platform: true,
+        },
 
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   async findOne(id: number) {
