@@ -29,7 +29,7 @@ export class SocialAccountController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   findAll(@Req() req) {
-    return this.socialAccountService.findAll(req.user.id);
+    return this.socialAccountService.findAll(req?.user?.id);
   }
 
   @Get(':id')

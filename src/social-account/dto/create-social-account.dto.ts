@@ -2,13 +2,13 @@ import { IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
 
 export class CreateSocialAccountDto {
   @IsInt()
-  platformId: number;
+  platformId!: number;
 
   @IsString()
-  accountName: string;
+  accountName!: string;
 
   @IsString()
-  accountId: string;
+  accountId!: string;
 
   @IsOptional()
   @IsString()
@@ -19,7 +19,7 @@ export class CreateSocialAccountDto {
   instagramId?: string;
 
   @IsString()
-  accessToken: string;
+  accessToken!: string;
 
   @IsOptional()
   @IsString()
