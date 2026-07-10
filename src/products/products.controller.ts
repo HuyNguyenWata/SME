@@ -36,6 +36,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsArray, IsNumber, IsOptional, IsString } from 'class-validator';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { CreateProductFromAiDto } from './dto/create-product-from-ai.dto';
+import { ProductAlertQueryDto } from './dto/product-alert-query.dto';
 
 class DeleteProductsDto {
   @ApiProperty({ type: [Number] })
@@ -93,6 +94,12 @@ export class ProductsController {
   @ApiOperation({ summary: 'List products' })
   findAll(@Query() query: ProductQueryDto) {
     return this.products.findAll(query);
+  }
+
+  @Get('alerts')
+  @ApiOperation({ summary: 'Get inventory alerts' })
+  getAlerts(@Query() query: ProductAlertQueryDto) {
+    return this.products.getAlerts(query);
   }
 
   @Get('stock-forecast')
