@@ -11,6 +11,7 @@ import {
   Headers,
   UnauthorizedException,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
