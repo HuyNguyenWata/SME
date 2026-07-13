@@ -18,22 +18,22 @@ export class ProductsService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async getMonthlyStats() {
+  async getMonthlyStats(userId?: number) {
     const now = new Date();
-
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
     const previousMonthStart = new Date(
       now.getFullYear(),
       now.getMonth() - 1,
       1,
     );
 
+    const whereBase = userId ? { userId } : {};
+
     const [currentMonth, previousMonth] = await Promise.all([
       this.prisma.product.count({
         where: {
+          ...whereBase,
           createdAt: {
             gte: currentMonthStart,
             lt: nextMonthStart,
@@ -42,6 +42,7 @@ export class ProductsService {
       }),
       this.prisma.product.count({
         where: {
+          ...whereBase,
           createdAt: {
             gte: previousMonthStart,
             lt: currentMonthStart,
@@ -70,9 +71,8 @@ export class ProductsService {
     };
   }
 
-  async getProductMonthlyStats() {
+  async getProductMonthlyStats(userId?: number) {
     const now = new Date();
-
     const currentMonthStart = new Date(
       now.getFullYear(),
       now.getMonth(),
@@ -82,7 +82,6 @@ export class ProductsService {
       0,
       0,
     );
-
     const nextMonthStart = new Date(
       now.getFullYear(),
       now.getMonth() + 1,
@@ -92,7 +91,6 @@ export class ProductsService {
       0,
       0,
     );
-
     const previousMonthStart = new Date(
       now.getFullYear(),
       now.getMonth() - 1,
@@ -103,9 +101,12 @@ export class ProductsService {
       0,
     );
 
+    const whereBase = userId ? { userId } : {};
+
     const [currentMonth, previousMonth] = await Promise.all([
       this.prisma.product.count({
         where: {
+          ...whereBase,
           createdAt: {
             gte: currentMonthStart,
             lt: nextMonthStart,
@@ -115,6 +116,7 @@ export class ProductsService {
 
       this.prisma.product.count({
         where: {
+          ...whereBase,
           createdAt: {
             gte: previousMonthStart,
             lt: currentMonthStart,
@@ -513,9 +515,13 @@ export class ProductsService {
     };
   }
 
-  async getStockForecast(lookbackDays: number = 30) {
+  async getStockForecast(userId: number, lookbackDays: number = 30) {
     const products = await this.prisma.product.findMany({
-      where: { quantity: { gt: 0 }, hasBeenOut: true },
+      where: {
+        quantity: { gt: 0 },
+        hasBeenOut: true,
+        ...(userId ? { userId } : {}),
+      },
       select: {
         id: true,
         name: true,
@@ -630,7 +636,7 @@ export class ProductsService {
     };
   }
 
-  async getAlerts(query: ProductAlertQueryDto) {
+  async getAlerts(query: ProductAlertQueryDto, storeId?: number) {
     const {
       page = 1,
       limit = 10,
@@ -640,6 +646,7 @@ export class ProductsService {
     } = query;
 
     const products = await this.prisma.product.findMany({
+      where: storeId ? { userId: storeId } : {},
       select: {
         id: true,
         name: true,

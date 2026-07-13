@@ -1,11 +1,16 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+/* eslint-disable */
+import { ExecutionContext, Injectable } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
 export class OptionalJwtAuthGuard extends AuthGuard('jwt') {
-  handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
-    // Return the user if authentication succeeds, otherwise return null
-    // We don't throw an error here so the route handler can decide what to do
+  handleRequest<TUser = any>(
+    err: any,
+    user: any,
+    info: any,
+    context: ExecutionContext,
+    status?: any,
+  ): TUser {
     return user || null;
   }
 }
