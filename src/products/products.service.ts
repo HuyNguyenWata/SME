@@ -329,6 +329,31 @@ export class ProductsService {
     )
       changedFields.push('specifications');
 
+    if (dto.price !== undefined && Number(dto.price) !== oldProduct.price)
+      changedFields.push('price');
+    if (dto.quantity !== undefined && dto.quantity !== oldProduct.quantity)
+      changedFields.push('quantity');
+    if (dto.unit !== undefined && dto.unit !== oldProduct.unit)
+      changedFields.push('unit');
+    if (dto.sku !== undefined && dto.sku !== oldProduct.sku)
+      changedFields.push('sku');
+    if (dto.status !== undefined && dto.status !== oldProduct.status)
+      changedFields.push('status');
+    if (
+      dto.lowStockThreshold !== undefined &&
+      dto.lowStockThreshold !== oldProduct.lowStockThreshold
+    )
+      changedFields.push('lowStockThreshold');
+    if (dto.expiryDate !== undefined) {
+      const newExpiry = dto.expiryDate
+        ? new Date(dto.expiryDate).getTime()
+        : null;
+      const oldExpiry = oldProduct.expiryDate
+        ? new Date(oldProduct.expiryDate).getTime()
+        : null;
+      if (newExpiry !== oldExpiry) changedFields.push('expiryDate');
+    }
+
     const needsAiSync = changedFields.length > 0;
 
     const internalDto = {
