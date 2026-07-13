@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -76,6 +76,16 @@ export class AuthController {
       );
     }
     return this.auth.customerLogin(storeId, dto);
+  }
+
+  @Get('store/:id/check')
+  @ApiOperation({ summary: 'Check if a store ID is valid' })
+  checkStore(@Param('id') id: string) {
+    const storeId = parseInt(id, 10);
+    if (isNaN(storeId)) {
+      return { valid: false };
+    }
+    return this.auth.checkStore(storeId);
   }
 
   @Post('refresh')

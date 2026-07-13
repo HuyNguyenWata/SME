@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -77,7 +78,18 @@ export class AuthService {
     return this.createTokenResponse(user);
   }
 
+  async checkStore(storeId: number) {
+    const store = await this.prisma.user.findUnique({
+      where: { id: storeId },
+    });
+    return { valid: !!store && store.role === 'ADMIN' };
+  }
+
   async customerRegister(storeId: number, dto: CustomerRegisterDto) {
+    const storeCheck = await this.checkStore(storeId);
+    if (!storeCheck.valid) {
+      throw new BadRequestException('Invalid Store ID');
+    }
     const existing = await this.prisma.customer.findUnique({
       where: {
         email_storeId: {
@@ -114,6 +126,11 @@ export class AuthService {
   }
 
   async customerLogin(storeId: number, dto: CustomerLoginDto) {
+    const storeCheck = await this.checkStore(storeId);
+    if (!storeCheck.valid) {
+      throw new BadRequestException('Invalid Store ID');
+    }
+
     const customer = await this.prisma.customer.findUnique({
       where: {
         email_storeId: {
