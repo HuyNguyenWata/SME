@@ -11,6 +11,8 @@ model User {
   email             String             @unique
   password          String
   name              String
+  description       String?
+  logoUrl           String?            @map("logo_url")
   role              String
   categoryId        Int?               @map("category_id")
   isActive          Boolean            @default(true) @map("is_active")

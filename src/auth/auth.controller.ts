@@ -1,22 +1,40 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
+  Headers,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
 import type { AuthUser } from '../common/types/auth-user.type';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
+import { ForgotPasswordDto } from './dto/password-reset.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { CustomerRegisterDto } from './dto/customer-register.dto';
 import { CustomerLoginDto } from './dto/customer-login.dto';
-import { Headers, UnauthorizedException } from '@nestjs/common';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -98,6 +116,51 @@ export class AuthController {
     return this.auth.storeInfo(storeId);
   }
 
+  @Put('store/me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update current store profile (name, description)' })
+  updateStoreProfile(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: { name?: string; description?: string },
+  ) {
+    return this.auth.updateStoreProfile(user.id, dto);
+  }
+
+  @Post('store/me/logo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Upload store logo' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  uploadStoreLogo(
+    @CurrentUser() user: AuthUser,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
+          new FileTypeValidator({ fileType: '.(png|jpeg|jpg|webp)' }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    return this.auth.uploadStoreLogo(user.id, file);
+  }
+
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh JWT token pair' })
   refresh(@Body() dto: RefreshTokenDto) {
@@ -128,7 +191,7 @@ export class AuthController {
 
   @Post('reset-password')
   @ApiOperation({ summary: 'Complete password reset flow' })
-  resetPassword(@Body() dto: ResetPasswordDto) {
+  resetPassword() {
     return this.auth.resetPassword();
   }
 }

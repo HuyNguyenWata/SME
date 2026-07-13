@@ -14,12 +14,15 @@ import { RegisterDto } from './dto/register.dto';
 import { CustomerRegisterDto } from './dto/customer-register.dto';
 import { CustomerLoginDto } from './dto/customer-login.dto';
 
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
+
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly cloudinary: CloudinaryService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -91,7 +94,8 @@ export class AuthService {
       select: {
         id: true,
         name: true,
-        // logoUrl: true // uncomment when added to DB
+        description: true,
+        logoUrl: true,
       },
     });
 
@@ -100,6 +104,41 @@ export class AuthService {
     }
 
     return store;
+  }
+
+  async updateStoreProfile(
+    storeId: number,
+    dto: { name?: string; description?: string },
+  ) {
+    return this.prisma.user.update({
+      where: { id: storeId, role: 'ADMIN' },
+      data: {
+        name: dto.name,
+        description: dto.description,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        logoUrl: true,
+      },
+    });
+  }
+
+  async uploadStoreLogo(storeId: number, file: Express.Multer.File) {
+    const result = await this.cloudinary.upload(file);
+    return this.prisma.user.update({
+      where: { id: storeId, role: 'ADMIN' },
+      data: {
+        logoUrl: result.secure_url,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        logoUrl: true,
+      },
+    });
   }
 
   async customerRegister(storeId: number, dto: CustomerRegisterDto) {
