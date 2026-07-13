@@ -22,6 +22,7 @@ model User {
   category          Category?          @relation(fields: [categoryId], references: [id])
   newsAPIConfigs    NewsAPIConfig[]
   socialAccounts    SocialAccount[]
+  customers         Customer[]         @relation("StoreCustomers")
 
   @@map("User")
 }
@@ -33,6 +34,25 @@ model Category {
   users      User[]
 
   @@map("Category")
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  storeId   Int      @map("store_id")
+  email     String
+  password  String
+  name      String
+  phone     String?
+  address   String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  store         User           @relation("StoreCustomers", fields: [storeId], references: [id])
+  conversations Conversation[]
+
+  @@unique([email, storeId])
+  @@map("Customer")
 }
 
 model Product {
@@ -92,7 +112,8 @@ model ProductComment {
 
 model Conversation {
   id               Int      @id @default(autoincrement())
-  userId           Int?     @map("user_id")
+  storeId          Int?     @map("store_id")
+  customerId       Int?     @map("customer_id")
   guestId          String?  @map("guest_id")
   title            String
   createdAt        DateTime @default(now()) @map("created_at")
@@ -100,9 +121,11 @@ model Conversation {
   updatedAt        DateTime @updatedAt @map("updated_at")
   contextProductId Int?     @map("context_product_id")
   chats            Chat[]
-  user             User?    @relation(fields: [userId], references: [id])
+  store            User?    @relation(fields: [storeId], references: [id])
+  customer         Customer? @relation(fields: [customerId], references: [id])
 
-  @@index([userId])
+  @@index([storeId])
+  @@index([customerId])
   @@index([guestId])
   @@map("Conversation")
 }

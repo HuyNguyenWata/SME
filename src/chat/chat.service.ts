@@ -20,12 +20,14 @@ import type {
 // INPUT TYPES
 // ==============================
 type SendMessageInput = SendMessageDto & {
-  userId?: number;
+  storeId?: number;
+  customerId?: number;
   guestId?: string;
 };
 
 type CreateConversationInput = CreateConversationDto & {
-  userId?: number;
+  storeId?: number;
+  customerId?: number;
   guestId?: string;
 };
 
@@ -44,8 +46,10 @@ export class ChatService {
   // ==============================
   // LIST CONVERSATIONS
   // ==============================
-  conversations(userId?: number, guestId?: string) {
-    const whereClause = userId ? { userId } : { guestId, userId: null };
+  conversations(storeId: number, customerId?: number, guestId?: string) {
+    const whereClause: any = { storeId };
+    if (customerId) whereClause.customerId = customerId;
+    else if (guestId) whereClause.guestId = guestId;
     return this.prisma.conversation.findMany({
       where: whereClause,
       include: {
@@ -71,7 +75,8 @@ export class ChatService {
     return this.prisma.conversation.create({
       data: {
         title: dto.title ?? 'New Chat',
-        userId: dto.userId,
+        storeId: dto.storeId,
+        customerId: dto.customerId,
         guestId: dto.guestId,
       },
       include: {
@@ -92,12 +97,15 @@ export class ChatService {
   // UPDATE CONVERSATION
   // ==============================
   async updateConversation(
-    userId: number | undefined,
+    storeId: number | undefined,
+    customerId: number | undefined,
     guestId: string | undefined,
     id: number,
     dto: UpdateConversationDto,
   ) {
-    const whereClause = userId ? { id, userId } : { id, guestId, userId: null };
+    const whereClause: any = { id, storeId };
+    if (customerId) whereClause.customerId = customerId;
+    else if (guestId) whereClause.guestId = guestId;
     const conversation = await this.prisma.conversation.findFirst({
       where: whereClause,
     });
@@ -117,8 +125,15 @@ export class ChatService {
   // ==============================
   // GET SINGLE CONVERSATION
   // ==============================
-  async conversation(id: number, userId?: number, guestId?: string) {
-    const whereClause = userId ? { id, userId } : { id, guestId, userId: null };
+  async conversation(
+    id: number,
+    storeId: number,
+    customerId?: number,
+    guestId?: string,
+  ) {
+    const whereClause: any = { id, storeId };
+    if (customerId) whereClause.customerId = customerId;
+    else if (guestId) whereClause.guestId = guestId;
     return this.prisma.conversation.findFirst({
       where: whereClause,
       include: {
@@ -143,7 +158,9 @@ export class ChatService {
   // ==============================
   async send(conversationId: number, dto: SendMessageInput) {
     // 1. Verify conversation exists
-    const whereClause = dto.userId ? { id: conversationId, userId: dto.userId } : { id: conversationId, guestId: dto.guestId, userId: null };
+    const whereClause: any = { id: conversationId, storeId: dto.storeId };
+    if (dto.customerId) whereClause.customerId = dto.customerId;
+    else if (dto.guestId) whereClause.guestId = dto.guestId;
     const conversation = await this.prisma.conversation.findFirst({
       where: whereClause,
     });
@@ -201,7 +218,7 @@ export class ChatService {
     try {
       const aiResponse = await this.aiCore.chatInternal({
         conversation_id: String(conversationId),
-        user_id: String(dto.userId || dto.guestId),
+        user_id: String(dto.customerId || dto.guestId || dto.storeId),
         recent_messages: recentMessages,
         current_message: currentMessage,
         extra_state: extraState,
@@ -273,7 +290,9 @@ export class ChatService {
     dto: SendMessageInput,
   ): AsyncGenerator<string> {
     // 1. Verify conversation exists
-    const whereClause = dto.userId ? { id: conversationId, userId: dto.userId } : { id: conversationId, guestId: dto.guestId, userId: null };
+    const whereClause: any = { id: conversationId, storeId: dto.storeId };
+    if (dto.customerId) whereClause.customerId = dto.customerId;
+    else if (dto.guestId) whereClause.guestId = dto.guestId;
     const conversation = await this.prisma.conversation.findFirst({
       where: whereClause,
     });
@@ -336,7 +355,7 @@ export class ChatService {
     try {
       const stream = this.aiCore.chatStreamInternal({
         conversation_id: String(conversationId),
-        user_id: String(dto.userId || dto.guestId),
+        user_id: String(dto.customerId || dto.guestId || dto.storeId),
         recent_messages: recentMessages,
         current_message: currentMessage,
         extra_state: extraState,
@@ -423,8 +442,15 @@ export class ChatService {
   // ==============================
   // DELETE CONVERSATION
   // ==============================
-  async removeConversation(id: number, userId?: number, guestId?: string) {
-    const whereClause = userId ? { id, userId } : { id, guestId, userId: null };
+  async removeConversation(
+    id: number,
+    storeId: number,
+    customerId?: number,
+    guestId?: string,
+  ) {
+    const whereClause: any = { id, storeId };
+    if (customerId) whereClause.customerId = customerId;
+    else if (guestId) whereClause.guestId = guestId;
     const conversation = await this.prisma.conversation.findFirst({
       where: whereClause,
     });
@@ -502,20 +528,25 @@ export class ChatService {
     return metadata;
   }
 
-  async chatAnalytics(days: number) {
+  async chatAnalytics(storeId: number, days: number) {
     const start = new Date();
     start.setDate(start.getDate() - days + 1);
     start.setHours(0, 0, 0, 0);
 
     const [conversationCount, messageCount, chats, products, histories, posts] =
       await Promise.all([
-        this.prisma.conversation.count(),
-        this.prisma.chat.count(),
+        this.prisma.conversation.count({
+          where: { storeId },
+        }),
+        this.prisma.chat.count({
+          where: { conversation: { storeId } },
+        }),
         this.prisma.chat.findMany({
           where: {
             createdAt: {
               gte: start,
             },
+            conversation: { storeId },
           },
           select: {
             role: true,
@@ -524,11 +555,13 @@ export class ChatService {
           },
         }),
         this.prisma.product.findMany({
+          where: { userId: storeId },
           select: { quantity: true },
         }),
         this.prisma.inventoryHistory.findMany({
           where: {
             createdAt: { gte: start },
+            product: { userId: storeId },
           },
           select: {
             type: true,
@@ -539,6 +572,7 @@ export class ChatService {
         this.prisma.socialPost.findMany({
           where: {
             createdAt: { gte: start },
+            generatedContent: { userId: storeId },
           },
           select: {
             createdAt: true,

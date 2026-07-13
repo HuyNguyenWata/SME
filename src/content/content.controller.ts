@@ -5,10 +5,13 @@ import {
   ParseIntPipe,
   Post,
   Query,
+  Req,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
+import { User } from '../common/decorators/user.decorator';
 import {
   PaginationQueryDto,
   SocialPostQueryDto,
@@ -21,6 +24,7 @@ import {
   CreateGeneratedContentDto,
   CreateSocialCalendarDto,
 } from './dto/create-generated-content.dto';
+import { OptionalJwtAuthGuard } from 'src/common/guards/optional-jwt-auth.guard';
 
 @ApiTags('Content')
 @Controller()
@@ -28,34 +32,70 @@ export class ContentController {
   constructor(private readonly content: ContentService) {}
 
   @Get('generated-content')
-  generated(@Query() query: PaginationQueryDto) {
-    return this.content.generated(query);
+  @UseGuards(OptionalJwtAuthGuard)
+  generated(
+    @Query() query: PaginationQueryDto,
+    @Req() req: import('express').Request,
+    @User('id') currentUserId?: number,
+  ) {
+    const storeIdHeader = req.headers['x-store-id'];
+    const targetStoreId =
+      currentUserId ||
+      (storeIdHeader ? parseInt(storeIdHeader as string, 10) : undefined);
+    if (!targetStoreId) {
+      throw new UnauthorizedException('Authentication or Store ID required');
+    }
+    return this.content.generated(query, targetStoreId);
   }
 
   @Get('social-posts')
-  mySocialPosts(@Query() query: SocialPostQueryDto) {
-    return this.content.mySocialPosts(query);
+  @UseGuards(OptionalJwtAuthGuard)
+  mySocialPosts(
+    @Query() query: SocialPostQueryDto,
+    @Req() req: import('express').Request,
+    @User('id') currentUserId?: number,
+  ) {
+    const storeIdHeader = req.headers['x-store-id'];
+    const targetStoreId =
+      currentUserId ||
+      (storeIdHeader ? parseInt(storeIdHeader as string, 10) : undefined);
+    if (!targetStoreId) {
+      throw new UnauthorizedException('Authentication or Store ID required');
+    }
+    return this.content.mySocialPosts(query, targetStoreId);
   }
 
   @Get('ai-social-posts')
-  aiSocialPosts(@Query() query: SocialPostQueryDto) {
-    return this.content.aiSocialPosts(query);
+  @UseGuards(OptionalJwtAuthGuard)
+  aiSocialPosts(
+    @Query() query: SocialPostQueryDto,
+    @Req() req: import('express').Request,
+    @User('id') currentUserId?: number,
+  ) {
+    const storeIdHeader = req.headers['x-store-id'];
+    const targetStoreId =
+      currentUserId ||
+      (storeIdHeader ? parseInt(storeIdHeader as string, 10) : undefined);
+    if (!targetStoreId) {
+      throw new UnauthorizedException('Authentication or Store ID required');
+    }
+    return this.content.aiSocialPosts(query, targetStoreId);
   }
 
   @Get('all-social-posts')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  allMySocialPosts() {
-    return this.content.allMySocialPosts();
+  allMySocialPosts(@User('id') userId: number) {
+    return this.content.allMySocialPosts(userId);
   }
 
   @Get('all-ai-social-posts')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  allAiSocialPosts() {
-    return this.content.allAiSocialPosts();
+  allAiSocialPosts(@User('id') userId: number) {
+    return this.content.allAiSocialPosts(userId);
   }
 
   @Post('social-posts')
@@ -97,8 +137,9 @@ export class ContentController {
   async calendar(
     @Query('year', ParseIntPipe) year: number,
     @Query('month', ParseIntPipe) month: number,
+    @User('id') userId: number,
   ) {
-    return this.content.calendar(year, month);
+    return this.content.calendar(year, month, userId);
   }
 
   @Get('news-categories')

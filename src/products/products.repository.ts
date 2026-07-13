@@ -12,8 +12,9 @@ export class ProductsRepository {
 
   async findMany(query: ProductQueryDto) {
     try {
-      const where = {
+      const where: Prisma.ProductWhereInput = {
         ...(query.status ? { status: query.status } : {}),
+        ...(query.storeId ? { userId: query.storeId } : {}),
         ...(query.search
           ? {
               OR: [

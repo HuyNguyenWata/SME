@@ -7,4 +7,8 @@ export class ProductQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(['ACTIVE', 'OUT_OF_STOCK', 'HIDDEN'])
   status?: 'ACTIVE' | 'OUT_OF_STOCK' | 'HIDDEN';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  storeId?: number;
 }

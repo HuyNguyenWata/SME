@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   Res,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -37,6 +38,7 @@ import { IsArray, IsNumber, IsOptional, IsString } from 'class-validator';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { CreateProductFromAiDto } from './dto/create-product-from-ai.dto';
 import { ProductAlertQueryDto } from './dto/product-alert-query.dto';
+import { OptionalJwtAuthGuard } from 'src/common/guards/optional-jwt-auth.guard';
 
 class DeleteProductsDto {
   @ApiProperty({ type: [Number] })
@@ -91,15 +93,49 @@ export class ProductsController {
   ) {}
 
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'List products' })
-  findAll(@Query() query: ProductQueryDto) {
+  findAll(
+    @Query() query: ProductQueryDto,
+    @Req() req: import('express').Request,
+    @User('id') currentUserId?: number,
+  ) {
+    const storeIdHeader = req.headers['x-store-id'];
+
+    // If admin is logged in, restrict to their own products.
+    // Otherwise use storeIdHeader for guest viewing.
+    if (currentUserId) {
+      query.storeId = currentUserId;
+    } else if (storeIdHeader) {
+      query.storeId = parseInt(storeIdHeader as string, 10);
+    } else {
+      throw new UnauthorizedException(
+        'Store ID is required for guest access, or a valid token is required for admin access.',
+      );
+    }
+
     return this.products.findAll(query);
   }
 
   @Get('alerts')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get inventory alerts' })
-  getAlerts(@Query() query: ProductAlertQueryDto) {
-    return this.products.getAlerts(query);
+  getAlerts(
+    @Query() query: ProductAlertQueryDto,
+    @Req() req: import('express').Request,
+    @User('id') currentUserId?: number,
+  ) {
+    const storeIdHeader = req.headers['x-store-id'];
+    let targetStoreId: number | undefined;
+
+    if (currentUserId) {
+      targetStoreId = currentUserId;
+    } else if (storeIdHeader) {
+      targetStoreId = parseInt(storeIdHeader as string, 10);
+    } else {
+      throw new UnauthorizedException('Authentication or Store ID required');
+    }
+    return this.products.getAlerts(query, targetStoreId);
   }
 
   @Get('stock-forecast')
@@ -107,17 +143,20 @@ export class ProductsController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get stock depletion forecast for all products' })
-  getStockForecast(@Query('days') days?: string) {
+  getStockForecast(@User('id') userId: number, @Query('days') days?: string) {
     const d = days ? parseInt(days, 10) : 30;
-    return this.products.getStockForecast(d);
+    return this.products.getStockForecast(userId, d);
   }
 
   @Get('stats/monthly')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get current month vs previous month product statistics',
   })
-  getMonthlyStats() {
-    return this.products.getMonthlyStats();
+  getMonthlyStats(@User('id') userId: number) {
+    return this.products.getMonthlyStats(userId);
   }
 
   @Get(':id')

@@ -26,7 +26,7 @@ export class ContentService {
     };
   }
 
-  async calendar(year: number, month: number) {
+  async calendar(year: number, month: number, userId?: number) {
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 1);
 
@@ -36,6 +36,7 @@ export class ContentService {
           gte: start,
           lt: end,
         },
+        ...(userId ? { generatedContent: { userId } } : {}),
       },
       include: {
         platform: true,
@@ -69,10 +70,11 @@ export class ContentService {
     });
   }
 
-  async generated(query: PaginationQueryDto) {
+  async generated(query: PaginationQueryDto, userId?: number) {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 20;
     return await this.prisma.generatedContent.findMany({
+      where: userId ? { userId } : {},
       skip: (page - 1) * limit,
       take: limit,
       orderBy: { createdAt: query.sortOrder ?? 'desc' },
@@ -80,12 +82,15 @@ export class ContentService {
     });
   }
 
-  async mySocialPosts(query: SocialPostQueryDto) {
+  async mySocialPosts(query: SocialPostQueryDto, userId?: number) {
     try {
       const page = Number(query.page) || 1;
       const limit = Number(query.limit) || 20;
 
       const where = {
+        ...(userId && {
+          generatedContent: { userId },
+        }),
         ...(query.status &&
           query.status !== 'ALL' && {
             status: query.status,
@@ -134,12 +139,15 @@ export class ContentService {
     }
   }
 
-  async aiSocialPosts(query: SocialPostQueryDto) {
+  async aiSocialPosts(query: SocialPostQueryDto, userId?: number) {
     try {
       const page = Number(query.page) || 1;
       const limit = Number(query.limit) || 20;
 
       const where = {
+        ...(userId && {
+          generatedContent: { userId },
+        }),
         ...(query.status &&
           query.status !== 'ALL' && {
             status: query.status,
@@ -186,9 +194,12 @@ export class ContentService {
     }
   }
 
-  async allMySocialPosts() {
+  async allMySocialPosts(userId?: number) {
     try {
       const where = {
+        ...(userId && {
+          generatedContent: { userId },
+        }),
         productId: {
           not: null,
         },
@@ -220,9 +231,12 @@ export class ContentService {
     }
   }
 
-  async allAiSocialPosts() {
+  async allAiSocialPosts(userId?: number) {
     try {
       const where = {
+        ...(userId && {
+          generatedContent: { userId },
+        }),
         productId: null,
       };
 
