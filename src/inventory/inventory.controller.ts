@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
+import { User } from '../common/decorators/user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { InventoryTransactionDto } from './dto/inventory-transaction.dto';
@@ -13,9 +14,15 @@ export class InventoryController {
   constructor(private readonly inventory: InventoryService) {}
 
   @Get('history')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'List inventory history' })
-  findAll(@Query() query: InventoryHistoryQueryDto) {
-    return this.inventory.findAll(query);
+  findAll(
+    @Query() query: InventoryHistoryQueryDto,
+    @User('id') userId: number,
+  ) {
+    return this.inventory.findAll(query, userId);
   }
 
   @Post('import')

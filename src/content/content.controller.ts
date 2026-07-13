@@ -7,6 +7,7 @@ import {
   Query,
   Req,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -41,6 +42,9 @@ export class ContentController {
     const targetStoreId =
       currentUserId ||
       (storeIdHeader ? parseInt(storeIdHeader as string, 10) : undefined);
+    if (!targetStoreId) {
+      throw new UnauthorizedException('Authentication or Store ID required');
+    }
     return this.content.generated(query, targetStoreId);
   }
 
@@ -55,6 +59,9 @@ export class ContentController {
     const targetStoreId =
       currentUserId ||
       (storeIdHeader ? parseInt(storeIdHeader as string, 10) : undefined);
+    if (!targetStoreId) {
+      throw new UnauthorizedException('Authentication or Store ID required');
+    }
     return this.content.mySocialPosts(query, targetStoreId);
   }
 
@@ -69,6 +76,9 @@ export class ContentController {
     const targetStoreId =
       currentUserId ||
       (storeIdHeader ? parseInt(storeIdHeader as string, 10) : undefined);
+    if (!targetStoreId) {
+      throw new UnauthorizedException('Authentication or Store ID required');
+    }
     return this.content.aiSocialPosts(query, targetStoreId);
   }
 

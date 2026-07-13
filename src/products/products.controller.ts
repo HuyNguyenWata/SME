@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   Res,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -107,6 +108,10 @@ export class ProductsController {
       query.storeId = currentUserId;
     } else if (storeIdHeader) {
       query.storeId = parseInt(storeIdHeader as string, 10);
+    } else {
+      throw new UnauthorizedException(
+        'Store ID is required for guest access, or a valid token is required for admin access.',
+      );
     }
 
     return this.products.findAll(query);
@@ -127,6 +132,8 @@ export class ProductsController {
       targetStoreId = currentUserId;
     } else if (storeIdHeader) {
       targetStoreId = parseInt(storeIdHeader as string, 10);
+    } else {
+      throw new UnauthorizedException('Authentication or Store ID required');
     }
     return this.products.getAlerts(query, targetStoreId);
   }

@@ -12,16 +12,15 @@ import { Prisma } from '@prisma/client';
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: InventoryHistoryQueryDto) {
+  async findAll(query: InventoryHistoryQueryDto, userId: number) {
     const where: Prisma.InventoryHistoryWhereInput = {
       ...(query.productId ? { productId: query.productId } : {}),
-      ...(query.search
-        ? {
-            product: {
-              name: { contains: query.search, mode: 'insensitive' as const },
-            },
-          }
-        : {}),
+      product: {
+        userId,
+        ...(query.search
+          ? { name: { contains: query.search, mode: 'insensitive' as const } }
+          : {}),
+      },
     };
     const [items, total] = await Promise.all([
       this.prisma.inventoryHistory.findMany({
