@@ -28,6 +28,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { User } from '../common/decorators/user.decorator';
+import type { AuthUser } from '../common/types/auth-user.type';
 import { parseId } from '../common/utils/id.util';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
@@ -98,19 +99,20 @@ export class ProductsController {
   findAll(
     @Query() query: ProductQueryDto,
     @Req() req: import('express').Request,
-    @User('id') currentUserId?: number,
+    @User() currentUser?: AuthUser,
   ) {
     const storeIdHeader = req.headers['x-store-id'];
 
-    // If admin is logged in, restrict to their own products.
+    // If user is logged in, use their storeId (Customer) or id (Admin).
     // Otherwise use storeIdHeader for guest viewing.
-    if (currentUserId) {
-      query.storeId = currentUserId;
+    if (currentUser) {
+      query.storeId =
+        currentUser.role === 'CUSTOMER' ? currentUser.storeId : currentUser.id;
     } else if (storeIdHeader) {
       query.storeId = parseInt(storeIdHeader as string, 10);
     } else {
       throw new UnauthorizedException(
-        'Store ID is required for guest access, or a valid token is required for admin access.',
+        'Store ID is required for guest access, or a valid token is required for user access.',
       );
     }
 
@@ -123,13 +125,14 @@ export class ProductsController {
   getAlerts(
     @Query() query: ProductAlertQueryDto,
     @Req() req: import('express').Request,
-    @User('id') currentUserId?: number,
+    @User() currentUser?: AuthUser,
   ) {
     const storeIdHeader = req.headers['x-store-id'];
     let targetStoreId: number | undefined;
 
-    if (currentUserId) {
-      targetStoreId = currentUserId;
+    if (currentUser) {
+      targetStoreId =
+        currentUser.role === 'CUSTOMER' ? currentUser.storeId : currentUser.id;
     } else if (storeIdHeader) {
       targetStoreId = parseInt(storeIdHeader as string, 10);
     } else {
