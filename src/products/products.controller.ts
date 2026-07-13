@@ -92,7 +92,14 @@ export class ProductsController {
 
   @Get()
   @ApiOperation({ summary: 'List products' })
-  findAll(@Query() query: ProductQueryDto) {
+  findAll(
+    @Query() query: ProductQueryDto,
+    @Req() req: import('express').Request,
+  ) {
+    const storeIdHeader = req.headers['x-store-id'];
+    if (storeIdHeader) {
+      query.storeId = parseInt(storeIdHeader as string, 10);
+    }
     return this.products.findAll(query);
   }
 
