@@ -21,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { parseId } from '../common/utils/id.util';
 import { ChatService } from './chat.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
@@ -207,8 +208,12 @@ export class ChatController {
   }
 
   @Get('analytics')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get chat analytics' })
-  analytics(@Query('days') days = '30') {
-    return this.chat.chatAnalytics(Number(days));
+  analytics(@Request() req: AuthRequest, @Query('days') days = '30') {
+    if (!req.user?.id) {
+      throw new UnauthorizedException('User ID not found in token');
+    }
+    return this.chat.chatAnalytics(req.user.id, Number(days));
   }
 }
