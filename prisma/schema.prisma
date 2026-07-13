@@ -112,7 +112,7 @@ model ProductComment {
 
 model Conversation {
   id               Int      @id @default(autoincrement())
-  userId           Int?     @map("user_id")
+  storeId          Int?     @map("store_id")
   customerId       Int?     @map("customer_id")
   guestId          String?  @map("guest_id")
   title            String
@@ -121,10 +121,10 @@ model Conversation {
   updatedAt        DateTime @updatedAt @map("updated_at")
   contextProductId Int?     @map("context_product_id")
   chats            Chat[]
-  user             User?    @relation(fields: [userId], references: [id])
+  store            User?    @relation(fields: [storeId], references: [id])
   customer         Customer? @relation(fields: [customerId], references: [id])
 
-  @@index([userId])
+  @@index([storeId])
   @@index([customerId])
   @@index([guestId])
   @@map("Conversation")

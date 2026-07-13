@@ -41,20 +41,27 @@ export class AuthService {
     if (dto.guestId) {
       await this.prisma.conversation.updateMany({
         where: { guestId: dto.guestId },
-        data: { userId: user.id, guestId: null },
+        data: { storeId: user.id, guestId: null },
       });
     }
 
     return this.createTokenResponse(user);
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, storeId?: number) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    if (storeId && user.role === 'ADMIN' && user.id !== storeId) {
+      throw new UnauthorizedException(
+        'Admin does not have access to this store',
+      );
+    }
+
     const hash = await bcrypt.hash('123456', 10);
     console.log(hash);
     const valid = await bcrypt.compare(dto.password, user.password);
@@ -63,7 +70,7 @@ export class AuthService {
     if (dto.guestId) {
       await this.prisma.conversation.updateMany({
         where: { guestId: dto.guestId },
-        data: { userId: user.id, guestId: null },
+        data: { storeId: user.id, guestId: null },
       });
     }
 
@@ -98,7 +105,7 @@ export class AuthService {
 
     if (dto.guestId) {
       await this.prisma.conversation.updateMany({
-        where: { guestId: dto.guestId, userId: storeId },
+        where: { guestId: dto.guestId, storeId: storeId },
         data: { customerId: customer.id, guestId: null },
       });
     }
@@ -125,7 +132,7 @@ export class AuthService {
 
     if (dto.guestId) {
       await this.prisma.conversation.updateMany({
-        where: { guestId: dto.guestId, userId: storeId },
+        where: { guestId: dto.guestId, storeId: storeId },
         data: { customerId: customer.id, guestId: null },
       });
     }

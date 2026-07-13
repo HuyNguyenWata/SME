@@ -79,7 +79,7 @@ export class ChatController {
     }
 
     return {
-      userId: finalStoreId,
+      storeId: finalStoreId,
       customerId: finalCustomerId,
       guestId: finalCustomerId ? undefined : guestId,
     };
@@ -102,11 +102,11 @@ export class ChatController {
     @Headers('x-store-id') storeIdHeader?: string,
   ) {
     const {
-      userId,
+      storeId,
       customerId,
       guestId: finalGuestId,
     } = this.validateAuth(req, guestId, storeIdHeader);
-    return this.chat.conversations(userId, customerId, finalGuestId);
+    return this.chat.conversations(storeId, customerId, finalGuestId);
   }
 
   // =========================
@@ -121,14 +121,14 @@ export class ChatController {
     @Headers('x-guest-id') headerGuestId?: string,
     @Headers('x-store-id') storeIdHeader?: string,
   ) {
-    const { userId, customerId, guestId } = this.validateAuth(
+    const { storeId, customerId, guestId } = this.validateAuth(
       req,
       headerGuestId,
       storeIdHeader,
     );
     return this.chat.createConversation({
       ...dto,
-      userId,
+      storeId,
       customerId,
       guestId,
     });
@@ -149,14 +149,14 @@ export class ChatController {
     @Headers('x-guest-id') headerGuestId?: string,
     @Headers('x-store-id') storeIdHeader?: string,
   ) {
-    const { userId, customerId, guestId } = this.validateAuth(
+    const { storeId, customerId, guestId } = this.validateAuth(
       req,
       headerGuestId,
       storeIdHeader,
     );
     return this.chat.send(parseId(id), {
       ...dto,
-      userId,
+      storeId,
       customerId,
       guestId,
     });
@@ -178,7 +178,7 @@ export class ChatController {
     @Headers('x-guest-id') headerGuestId?: string,
     @Headers('x-store-id') storeIdHeader?: string,
   ) {
-    const { userId, customerId, guestId } = this.validateAuth(
+    const { storeId, customerId, guestId } = this.validateAuth(
       req,
       headerGuestId,
       storeIdHeader,
@@ -195,7 +195,7 @@ export class ChatController {
     try {
       const stream = this.chat.sendStream(conversationId, {
         ...dto,
-        userId,
+        storeId,
         customerId,
         guestId,
       });
@@ -229,12 +229,12 @@ export class ChatController {
     @Headers('x-guest-id') headerGuestId?: string,
     @Headers('x-store-id') storeIdHeader?: string,
   ) {
-    const { userId, customerId, guestId } = this.validateAuth(
+    const { storeId, customerId, guestId } = this.validateAuth(
       req,
       headerGuestId,
       storeIdHeader,
     );
-    return this.chat.conversation(parseId(id), userId, customerId, guestId);
+    return this.chat.conversation(parseId(id), storeId, customerId, guestId);
   }
 
   // =========================
@@ -250,13 +250,13 @@ export class ChatController {
     @Headers('x-guest-id') headerGuestId?: string,
     @Headers('x-store-id') storeIdHeader?: string,
   ) {
-    const { userId, customerId, guestId } = this.validateAuth(
+    const { storeId, customerId, guestId } = this.validateAuth(
       req,
       headerGuestId,
       storeIdHeader,
     );
     return this.chat.updateConversation(
-      userId,
+      storeId,
       customerId,
       guestId,
       parseId(id),
@@ -276,14 +276,14 @@ export class ChatController {
     @Headers('x-guest-id') headerGuestId?: string,
     @Headers('x-store-id') storeIdHeader?: string,
   ) {
-    const { userId, customerId, guestId } = this.validateAuth(
+    const { storeId, customerId, guestId } = this.validateAuth(
       req,
       headerGuestId,
       storeIdHeader,
     );
     return this.chat.removeConversation(
       parseId(id),
-      userId,
+      storeId,
       customerId,
       guestId,
     );
@@ -293,6 +293,12 @@ export class ChatController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get chat analytics' })
   analytics(@Request() req: AuthRequest, @Query('days') days = '30') {
+    // Only Store Owners (Users) can access analytics, Customers cannot
+    if (req.user?.role === 'CUSTOMER' || req.user?.storeId) {
+      throw new UnauthorizedException(
+        'Customers cannot access store analytics',
+      );
+    }
     if (!req.user?.id) {
       throw new UnauthorizedException('User ID not found in token');
     }

@@ -33,8 +33,13 @@ export class AuthController {
 
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto);
+  login(@Body() dto: LoginDto, @Headers('x-store-id') storeIdHeader?: string) {
+    const parsedStoreId = storeIdHeader
+      ? parseInt(storeIdHeader, 10)
+      : undefined;
+    const storeId =
+      parsedStoreId && !isNaN(parsedStoreId) ? parsedStoreId : undefined;
+    return this.auth.login(dto, storeId);
   }
 
   @Post('customer/register')
