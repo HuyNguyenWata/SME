@@ -85,6 +85,23 @@ export class AuthService {
     return { valid: !!store && store.role === 'ADMIN' };
   }
 
+  async storeInfo(storeId: number) {
+    const store = await this.prisma.user.findUnique({
+      where: { id: storeId, role: 'ADMIN' },
+      select: {
+        id: true,
+        name: true,
+        // logoUrl: true // uncomment when added to DB
+      },
+    });
+
+    if (!store) {
+      throw new BadRequestException('Invalid Store ID');
+    }
+
+    return store;
+  }
+
   async customerRegister(storeId: number, dto: CustomerRegisterDto) {
     const storeCheck = await this.checkStore(storeId);
     if (!storeCheck.valid) {

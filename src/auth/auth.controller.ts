@@ -88,6 +88,16 @@ export class AuthController {
     return this.auth.checkStore(storeId);
   }
 
+  @Get('store/:id/info')
+  @ApiOperation({ summary: 'Get basic information of a store' })
+  storeInfo(@Param('id') id: string) {
+    const storeId = parseInt(id, 10);
+    if (isNaN(storeId)) {
+      throw new UnauthorizedException('Invalid store ID');
+    }
+    return this.auth.storeInfo(storeId);
+  }
+
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh JWT token pair' })
   refresh(@Body() dto: RefreshTokenDto) {
