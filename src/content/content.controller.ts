@@ -110,7 +110,11 @@ export class ContentController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  createGeneratedContent(@Body() dto: CreateGeneratedContentDto) {
+  createGeneratedContent(
+    @Body() dto: CreateGeneratedContentDto,
+    @User('id') userId: number,
+  ) {
+    dto.userId = userId;
     return this.content.createGeneratedContent(dto);
   }
 
