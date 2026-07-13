@@ -10,6 +10,8 @@ import { PrismaService } from '../prisma/PrismaService/prisma.service';
 import { AuthUser } from '../common/types/auth-user.type';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { CustomerRegisterDto } from './dto/customer-register.dto';
+import { CustomerLoginDto } from './dto/customer-login.dto';
 
 @Injectable()
 export class AuthService {
@@ -66,6 +68,69 @@ export class AuthService {
     }
 
     return this.createTokenResponse(user);
+  }
+
+  async customerRegister(storeId: number, dto: CustomerRegisterDto) {
+    const existing = await this.prisma.customer.findUnique({
+      where: {
+        email_storeId: {
+          email: dto.email.toLowerCase(),
+          storeId,
+        },
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException('Email already registered for this store');
+    }
+
+    const customer = await this.prisma.customer.create({
+      data: {
+        storeId,
+        email: dto.email.toLowerCase(),
+        password: await bcrypt.hash(dto.password, 12),
+        name: dto.name,
+        phone: dto.phone,
+        address: dto.address,
+        isActive: true,
+      },
+    });
+
+    if (dto.guestId) {
+      await this.prisma.conversation.updateMany({
+        where: { guestId: dto.guestId, userId: storeId },
+        data: { customerId: customer.id, guestId: null },
+      });
+    }
+
+    return this.createCustomerTokenResponse(customer);
+  }
+
+  async customerLogin(storeId: number, dto: CustomerLoginDto) {
+    const customer = await this.prisma.customer.findUnique({
+      where: {
+        email_storeId: {
+          email: dto.email.toLowerCase(),
+          storeId,
+        },
+      },
+    });
+
+    if (!customer || !customer.isActive) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const valid = await bcrypt.compare(dto.password, customer.password);
+    if (!valid) throw new UnauthorizedException('Invalid credentials');
+
+    if (dto.guestId) {
+      await this.prisma.conversation.updateMany({
+        where: { guestId: dto.guestId, userId: storeId },
+        data: { customerId: customer.id, guestId: null },
+      });
+    }
+
+    return this.createCustomerTokenResponse(customer);
   }
 
   async refresh(refreshToken: string) {
@@ -158,6 +223,54 @@ export class AuthService {
         name: user.name,
         role: user.role,
         isActive: user.isActive,
+      },
+    };
+  }
+
+  private async createCustomerTokenResponse(customer: {
+    id: number;
+    email: string;
+    name: string;
+    isActive: boolean;
+    storeId: number;
+  }) {
+    const payload = {
+      sub: customer.id,
+      email: customer.email,
+      role: 'CUSTOMER',
+      storeId: customer.storeId,
+    };
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwt.signAsync(payload, {
+        secret: this.config.get<string>('JWT_SECRET') ?? 'dev-secret-change-me',
+        expiresIn: parseInt(
+          this.config.get<string>('JWT_EXPIRES_IN') ?? '900',
+          10,
+        ),
+      }),
+      this.jwt.signAsync(
+        { ...payload, type: 'refresh' },
+        {
+          secret:
+            this.config.get<string>('JWT_REFRESH_SECRET') ??
+            'dev-refresh-secret-change-me',
+          expiresIn: parseInt(
+            this.config.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '604800',
+            10,
+          ),
+        },
+      ),
+    ]);
+
+    return {
+      accessToken,
+      refreshToken,
+      customer: {
+        id: customer.id,
+        email: customer.email,
+        name: customer.name,
+        isActive: customer.isActive,
+        storeId: customer.storeId,
       },
     };
   }
