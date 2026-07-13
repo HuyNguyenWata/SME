@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateSocialAccountDto } from './dto/create-social-account.dto';
 import { UpdateSocialAccountDto } from './dto/update-social-account.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
 
 type CreateSocialAccountPayload = CreateSocialAccountDto & {
@@ -10,6 +10,18 @@ type CreateSocialAccountPayload = CreateSocialAccountDto & {
 @Injectable()
 export class SocialAccountService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getNewsCategories() {
+    const data = await this.prisma.newsCategory.findMany({
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return {
+      data,
+    };
+  }
 
   async findAll(userId?: number) {
     try {
