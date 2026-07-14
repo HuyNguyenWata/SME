@@ -76,6 +76,7 @@ export class ChatService {
         86400,
       ); // 24h
       if (currentUsage > limit) {
+        await this.redis.getClient().decr(redisKey);
         throw new HttpException(
           'Bạn đã đạt giới hạn tin nhắn hôm nay. Vui lòng nâng cấp tài khoản.',
           HttpStatus.TOO_MANY_REQUESTS,
@@ -97,6 +98,8 @@ export class ChatService {
       const ipUsage = await this.redis.incrementWithExpire(ipRedisKey, 86400);
 
       if (guestUsage > limit || ipUsage > ipLimit) {
+        await this.redis.getClient().decr(guestRedisKey);
+        await this.redis.getClient().decr(ipRedisKey);
         throw new HttpException(
           'Bạn đã đạt giới hạn dùng thử hôm nay. Vui lòng đăng nhập để tiếp tục.',
           HttpStatus.TOO_MANY_REQUESTS,

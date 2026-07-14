@@ -94,6 +94,7 @@ export class N8NService {
     );
 
     if (currentUsage > limit) {
+      await this.redisService.getClient().decr(key);
       throw new HttpException(
         'Bạn đã vượt quá số lần tạo bài đăng bằng AI trong hôm nay.',
         HttpStatus.TOO_MANY_REQUESTS,
