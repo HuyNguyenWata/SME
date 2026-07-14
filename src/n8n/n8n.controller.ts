@@ -1,6 +1,18 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 import { N8NService } from './n8n.service';
-import { ContentDto, PublishDto } from './dto/n8n.request.dto';
+
+interface AuthRequest extends Request {
+  user: {
+    id: number;
+    [key: string]: any;
+  };
+}
+import {
+  ContentDto,
+  PublishDto,
+  InstantSubmitRequestDto,
+} from './dto/n8n.request.dto';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
@@ -17,18 +29,23 @@ export class N8NController {
   }
 
   @Post('content')
-  async content(@Body() dto: ContentDto) {
-    return this.n8NService.createContent(dto);
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async content(@Body() dto: ContentDto, @Req() req: AuthRequest) {
+    return this.n8NService.createContent(dto, req.user.id);
   }
 
   @Post('instant')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  async instantSubmit(@Req() req) {
-    console.log(req.user);
+  async instantSubmit(
+    @Req() req: AuthRequest,
+    @Body() body: InstantSubmitRequestDto,
+  ) {
     return this.n8NService.instantSubmit({
       userId: req.user.id,
+      configId: body.configId,
     });
   }
 }

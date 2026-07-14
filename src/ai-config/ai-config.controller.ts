@@ -5,9 +5,19 @@ import {
   Param,
   Patch,
   Post,
+  Delete,
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
+
+interface AuthRequest extends Request {
+  user: {
+    id: number;
+    [key: string]: any;
+  };
+}
+
 import { CreateNewsApiConfigDto } from './dto/create-news-api-config.dto';
 import { UpdateNewsApiConfigDto } from './dto/update-news-api-config.dto';
 import { AiConfigService } from './ai-config.service';
@@ -23,7 +33,10 @@ export class AiConfigController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  createNewsApiConfig(@Body() dto: CreateNewsApiConfigDto, @Req() req) {
+  createNewsApiConfig(
+    @Body() dto: CreateNewsApiConfigDto,
+    @Req() req: AuthRequest,
+  ) {
     return this.service.createNewsApiConfig(req.user.id, dto);
   }
 
@@ -34,7 +47,7 @@ export class AiConfigController {
   updateNewsApiConfig(
     @Param('id') id: string,
     @Body() dto: UpdateNewsApiConfigDto,
-    @Req() req,
+    @Req() req: AuthRequest,
   ) {
     return this.service.updateNewsApiConfig(Number(id), req.user.id, dto);
   }
@@ -43,7 +56,15 @@ export class AiConfigController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  getNewsApiConfigs(@Req() req) {
+  getNewsApiConfigs(@Req() req: AuthRequest) {
     return this.service.getNewsApiConfigs(req.user.id);
+  }
+
+  @Delete('news-api-configs/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  deleteNewsApiConfig(@Param('id') id: string, @Req() req: AuthRequest) {
+    return this.service.deleteNewsApiConfig(Number(id), req.user.id);
   }
 }

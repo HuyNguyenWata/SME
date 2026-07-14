@@ -38,6 +38,7 @@
     "cloudinary": "^2.10.0",
     "compression": "^1.8.1",
     "helmet": "^8.2.0",
+    "ioredis": "^5.11.1",
     "multer": "^2.2.0",
     "next-cloudinary": "^6.17.5",
     "passport": "^0.7.0",

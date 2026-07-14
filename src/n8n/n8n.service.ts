@@ -1,9 +1,13 @@
 import {
+  HttpException,
+  HttpStatus,
   Injectable,
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/PrismaService/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import {
   PublishDto,
   ContentDto,
@@ -25,7 +29,11 @@ export class N8NService {
   private readonly logger = new Logger(N8NService.name);
   private readonly webhookUrl: string;
   private readonly webhooInstant: string;
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly redisService: RedisService,
+  ) {
     this.webhookUrl = this.configService.getOrThrow<string>(
       'N8N_WEBHOOK_CREATE_CONTENT_URL',
     );
@@ -63,8 +71,43 @@ export class N8NService {
     }
   }
 
-  async createContent({ productId, note }: ContentDto) {
+  private async checkQuota(userId: number) {
+    let limit = 5;
+
     try {
+      const setting = await this.prisma.setting.findUnique({
+        where: { key: 'AI_CREATE_LIMIT' },
+      });
+      if (setting) {
+        limit = parseInt(setting.value, 10) || 5;
+      }
+    } catch (e) {
+      this.logger.error('Failed to get AI_CREATE_LIMIT', e);
+    }
+
+    const monthStr = new Date().toISOString().slice(0, 7);
+    const key = `ai_create_usage:${userId}:${monthStr}`;
+
+    const currentUsage = await this.redisService.incrementWithExpire(
+      key,
+      2592000,
+    );
+
+    if (currentUsage > limit) {
+      await this.redisService.getClient().decr(key);
+      throw new HttpException(
+        'Bạn đã vượt quá số lần tạo bài đăng bằng AI trong tháng này.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  async createContent({ productId, note }: ContentDto, userId: number) {
+    const monthStr = new Date().toISOString().slice(0, 7);
+    const key = `ai_create_usage:${userId}:${monthStr}`;
+    try {
+      await this.checkQuota(userId);
+
       const form = new FormData();
 
       form.append('product_id', String(productId));
@@ -87,16 +130,64 @@ export class N8NService {
 
       return JSON.parse(text) as unknown;
     } catch (error) {
+      if (!(error instanceof HttpException)) {
+        await this.redisService.getClient().decr(key);
+      }
       console.error('createContent error:', error);
       throw error;
     }
   }
 
-  async instantSubmit({ userId }: InstantSubmitDto) {
+  private async checkAIPostQuota(userId: number) {
+    let limit = 50;
+
+    try {
+      const setting = await this.prisma.setting.findUnique({
+        where: { key: 'AI_POST_LIMIT' },
+      });
+      if (setting) {
+        limit = parseInt(setting.value, 10) || 50;
+      }
+    } catch (e) {
+      this.logger.error('Failed to get AI_POST_LIMIT', e);
+    }
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const publishedCount = await this.prisma.socialPost.count({
+      where: {
+        status: 'PUBLISHED',
+        productId: null,
+        createdAt: {
+          gte: startOfMonth,
+          lt: endOfMonth,
+        },
+        generatedContent: {
+          userId,
+        },
+      },
+    });
+
+    if (publishedCount >= limit) {
+      throw new HttpException(
+        'Bạn đã vượt quá số lượng bài đăng AI trong tháng này.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  async instantSubmit({ userId, configId }: InstantSubmitDto) {
+    await this.checkAIPostQuota(userId);
+
     try {
       const form = new FormData();
 
       form.append('user_id', String(userId));
+      form.append('config_id', String(configId));
 
       const res = await fetch(this.webhooInstant, {
         method: 'POST',
@@ -115,6 +206,9 @@ export class N8NService {
 
       return JSON.parse(text) as unknown;
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       console.error('createContent error:', error);
       throw error;
     }

@@ -3,6 +3,8 @@ import {
   Logger,
   NotFoundException,
   InternalServerErrorException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
@@ -10,6 +12,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { AiCoreClientService } from '../common/services/ai-core-client.service';
+import { RedisService } from '../redis/redis.service';
 import type {
   AiCoreMessage,
   AiCoreStreamChunk,
@@ -23,6 +26,7 @@ type SendMessageInput = SendMessageDto & {
   storeId?: number;
   customerId?: number;
   guestId?: string;
+  ipAddress?: string;
 };
 
 type CreateConversationInput = CreateConversationDto & {
@@ -41,7 +45,69 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiCore: AiCoreClientService,
+    private readonly redis: RedisService,
   ) {}
+
+  // ==============================
+  // QUOTA CHECKING
+  // ==============================
+  private async checkQuota(
+    customerId?: number,
+    guestId?: string,
+    ipAddress?: string,
+  ): Promise<string[]> {
+    const isGuest = !customerId;
+    const settingKey = isGuest ? 'GUEST_CHAT_LIMIT' : 'USER_CHAT_LIMIT';
+    const defaultLimit = isGuest ? 5 : 50;
+
+    // Fetch limit from DB
+    const setting = await this.prisma.setting.findUnique({
+      where: { key: settingKey },
+    });
+    const limit = setting ? parseInt(setting.value, 10) : defaultLimit;
+
+    const dateStr = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+    if (!isGuest) {
+      // User quota check
+      const redisKey = `chat_quota:user:${customerId}:${dateStr}`;
+      const currentUsage = await this.redis.incrementWithExpire(
+        redisKey,
+        2592000,
+      ); // 30 days
+      if (currentUsage > limit) {
+        await this.redis.getClient().decr(redisKey);
+        throw new HttpException(
+          'Bạn đã đạt giới hạn tin nhắn tháng này. Vui lòng nâng cấp tài khoản.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      return [redisKey];
+    } else {
+      // Guest hybrid check: guestId (individual) + IP (global network limit to prevent script spam)
+      const guestRedisKey = `chat_quota:guest_id:${guestId || 'unknown'}:${dateStr}`;
+      const ipRedisKey = `chat_quota:guest_ip:${ipAddress || 'unknown-ip'}:${dateStr}`;
+
+      const ipLimit = limit * 5; // Allow an IP to have 5x the normal guest limit (to handle cafes/offices)
+
+      // Increment both
+      const guestUsage = await this.redis.incrementWithExpire(
+        guestRedisKey,
+        2592000,
+      );
+      const ipUsage = await this.redis.incrementWithExpire(ipRedisKey, 2592000);
+
+      if (guestUsage > limit || ipUsage > ipLimit) {
+        await this.redis.getClient().decr(guestRedisKey);
+        await this.redis.getClient().decr(ipRedisKey);
+        throw new HttpException(
+          'Bạn đã đạt giới hạn dùng thử tháng này. Vui lòng đăng nhập để tiếp tục.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      return [guestRedisKey, ipRedisKey];
+    }
+  }
 
   // ==============================
   // LIST CONVERSATIONS
@@ -166,56 +232,63 @@ export class ChatService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
-    let finalContextProductId = conversation.contextProductId;
-    if (dto.contextProductId !== undefined) {
-      finalContextProductId = dto.contextProductId;
-      await this.prisma.conversation.update({
-        where: { id: conversationId },
-        data: { contextProductId: finalContextProductId },
-      });
-    }
+    // 1.5 Check quota
+    const quotaKeys = await this.checkQuota(
+      dto.customerId,
+      dto.guestId,
+      dto.ipAddress,
+    );
 
-    // 2. Save user message to DB
-    const userMsg = await this.prisma.chat.create({
-      data: {
-        conversationId,
-        role: 'user',
-        message: dto.message,
-        metadata: finalContextProductId
-          ? { contextProductId: finalContextProductId }
-          : {},
-      },
-    });
-
-    // 3. Load recent messages for context
-    const recentChats = await this.prisma.chat.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: 'desc' },
-      take: RECENT_MESSAGES_LIMIT,
-    });
-
-    // Reverse to chronological order, exclude the current message (already in current_message)
-    const recentMessages: AiCoreMessage[] = recentChats
-      .reverse()
-      .filter((c) => c.id !== userMsg.id)
-      .map((c) => ({
-        id: String(c.id),
-        role: c.role as 'user' | 'assistant' | 'system',
-        content: c.message,
-      }));
-
-    const extraState = finalContextProductId
-      ? { current_focus_product: finalContextProductId }
-      : {};
-
-    const currentMessage: AiCoreMessage = {
-      id: String(userMsg.id),
-      role: 'user',
-      content: dto.message,
-    };
-
-    // 4. Call AI-Core internal chat
     try {
+      let finalContextProductId = conversation.contextProductId;
+      if (dto.contextProductId !== undefined) {
+        finalContextProductId = dto.contextProductId;
+        await this.prisma.conversation.update({
+          where: { id: conversationId },
+          data: { contextProductId: finalContextProductId },
+        });
+      }
+
+      // 2. Save user message to DB
+      const userMsg = await this.prisma.chat.create({
+        data: {
+          conversationId,
+          role: 'user',
+          message: dto.message,
+          metadata: finalContextProductId
+            ? { contextProductId: finalContextProductId }
+            : {},
+        },
+      });
+
+      // 3. Load recent messages for context
+      const recentChats = await this.prisma.chat.findMany({
+        where: { conversationId },
+        orderBy: { createdAt: 'desc' },
+        take: RECENT_MESSAGES_LIMIT,
+      });
+
+      // Reverse to chronological order, exclude the current message (already in current_message)
+      const recentMessages: AiCoreMessage[] = recentChats
+        .reverse()
+        .filter((c) => c.id !== userMsg.id)
+        .map((c) => ({
+          id: String(c.id),
+          role: c.role as 'user' | 'assistant' | 'system',
+          content: c.message,
+        }));
+
+      const extraState = finalContextProductId
+        ? { current_focus_product: finalContextProductId }
+        : {};
+
+      const currentMessage: AiCoreMessage = {
+        id: String(userMsg.id),
+        role: 'user',
+        content: dto.message,
+      };
+
+      // 4. Call AI-Core internal chat
       const aiResponse = await this.aiCore.chatInternal({
         conversation_id: String(conversationId),
         user_id: String(dto.customerId || dto.guestId || dto.storeId),
@@ -271,11 +344,22 @@ export class ChatService {
         },
       };
     } catch (error) {
+      if (!(error instanceof HttpException)) {
+        for (const key of quotaKeys) {
+          await this.redis.getClient().decr(key);
+        }
+      }
       this.logger.error(
         `AI-Core chat failed for conversation ${conversationId}: ${
           error instanceof Error ? error.message : error
         }`,
       );
+      if (
+        error instanceof InternalServerErrorException ||
+        error instanceof HttpException
+      ) {
+        throw error;
+      }
       throw new InternalServerErrorException(
         'Failed to process chat message with AI service',
       );
@@ -298,61 +382,68 @@ export class ChatService {
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
 
-    let finalContextProductId = conversation.contextProductId;
-    if (dto.contextProductId !== undefined) {
-      finalContextProductId = dto.contextProductId;
-      await this.prisma.conversation.update({
-        where: { id: conversationId },
-        data: { contextProductId: finalContextProductId },
-      });
-    }
-
-    // 2. Save user message to DB
-    const userMsg = await this.prisma.chat.create({
-      data: {
-        conversationId,
-        role: 'user',
-        message: dto.message,
-        metadata: finalContextProductId
-          ? { contextProductId: finalContextProductId }
-          : {},
-      },
-    });
-
-    // 3. Load recent messages for context
-    const recentChats = await this.prisma.chat.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: 'desc' },
-      take: RECENT_MESSAGES_LIMIT,
-    });
-
-    const recentMessages: AiCoreMessage[] = recentChats
-      .reverse()
-      .filter((c) => c.id !== userMsg.id)
-      .map((c) => ({
-        id: String(c.id),
-        role: c.role as 'user' | 'assistant' | 'system',
-        content: c.message,
-      }));
-
-    const extraState = finalContextProductId
-      ? { current_focus_product: finalContextProductId }
-      : {};
-
-    const currentMessage: AiCoreMessage = {
-      id: String(userMsg.id),
-      role: 'user',
-      content: dto.message,
-    };
-
-    // 4. Stream from AI-Core, forward chunks to client, accumulate content
-    let fullContent = '';
-    let tokenUsage: AiCoreTokenUsage | null = null;
-    let latencyMs = 0;
-    let isError = false;
-    let errorCode: string | null = null;
+    // 1.5 Check quota
+    const quotaKeys = await this.checkQuota(
+      dto.customerId,
+      dto.guestId,
+      dto.ipAddress,
+    );
 
     try {
+      let finalContextProductId = conversation.contextProductId;
+      if (dto.contextProductId !== undefined) {
+        finalContextProductId = dto.contextProductId;
+        await this.prisma.conversation.update({
+          where: { id: conversationId },
+          data: { contextProductId: finalContextProductId },
+        });
+      }
+
+      // 2. Save user message to DB
+      const userMsg = await this.prisma.chat.create({
+        data: {
+          conversationId,
+          role: 'user',
+          message: dto.message,
+          metadata: finalContextProductId
+            ? { contextProductId: finalContextProductId }
+            : {},
+        },
+      });
+
+      // 3. Load recent messages for context
+      const recentChats = await this.prisma.chat.findMany({
+        where: { conversationId },
+        orderBy: { createdAt: 'desc' },
+        take: RECENT_MESSAGES_LIMIT,
+      });
+
+      const recentMessages: AiCoreMessage[] = recentChats
+        .reverse()
+        .filter((c) => c.id !== userMsg.id)
+        .map((c) => ({
+          id: String(c.id),
+          role: c.role as 'user' | 'assistant' | 'system',
+          content: c.message,
+        }));
+
+      const extraState = finalContextProductId
+        ? { current_focus_product: finalContextProductId }
+        : {};
+
+      const currentMessage: AiCoreMessage = {
+        id: String(userMsg.id),
+        role: 'user',
+        content: dto.message,
+      };
+
+      // 4. Stream from AI-Core, forward chunks to client, accumulate content
+      let fullContent = '';
+      let tokenUsage: AiCoreTokenUsage | null = null;
+      let latencyMs = 0;
+      let isError = false;
+      let errorCode: string | null = null;
+
       const stream = this.aiCore.chatStreamInternal({
         conversation_id: String(conversationId),
         user_id: String(dto.customerId || dto.guestId || dto.storeId),
@@ -421,6 +512,11 @@ export class ChatService {
         });
       }
     } catch (error) {
+      if (!(error instanceof HttpException)) {
+        for (const key of quotaKeys) {
+          await this.redis.getClient().decr(key);
+        }
+      }
       this.logger.error(
         `AI-Core stream failed for conversation ${conversationId}: ${
           error instanceof Error ? error.message : error

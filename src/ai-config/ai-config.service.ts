@@ -1,10 +1,60 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { CreateNewsApiConfigDto } from './dto/create-news-api-config.dto';
 import { UpdateNewsApiConfigDto } from './dto/update-news-api-config.dto';
 import { PrismaService } from 'src/prisma/PrismaService/prisma.service';
 @Injectable()
 export class AiConfigService {
+  private readonly logger = new Logger(AiConfigService.name);
   constructor(private readonly prisma: PrismaService) {}
+
+  private async checkAIPostQuota(userId: number) {
+    let limit = 50;
+
+    try {
+      const setting = await this.prisma.setting.findUnique({
+        where: { key: 'AI_POST_LIMIT' },
+      });
+      if (setting) {
+        limit = parseInt(setting.value, 10) || 50;
+      }
+    } catch (e) {
+      this.logger.error('Failed to get AI_POST_LIMIT', e);
+    }
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const publishedCount = await this.prisma.socialPost.count({
+      where: {
+        status: 'PUBLISHED',
+        productId: null,
+        createdAt: {
+          gte: startOfMonth,
+          lt: endOfMonth,
+        },
+        generatedContent: {
+          userId,
+        },
+      },
+    });
+
+    if (publishedCount >= limit) {
+      throw new HttpException(
+        'Bạn đã vượt quá số lượng bài đăng AI trong tháng này.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
 
   async createNewsApiConfig(userId: number, dto: CreateNewsApiConfigDto) {
     return this.prisma.$transaction(async (tx) => {
@@ -46,6 +96,11 @@ export class AiConfigService {
       throw new NotFoundException('News API Config not found');
     }
 
+    // Check quota khi bật isActive từ false -> true
+    if (dto.isActive === true && !config.isActive) {
+      await this.checkAIPostQuota(userId);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       if (dto.isActive) {
         await tx.newsAPIConfig.updateMany({
@@ -82,6 +137,27 @@ export class AiConfigService {
       orderBy: {
         createdAt: 'desc',
       },
+    });
+  }
+
+  async deleteNewsApiConfig(id: number, userId: number) {
+    const config = await this.prisma.newsAPIConfig.findFirst({
+      where: {
+        id,
+        userId,
+      },
+    });
+
+    if (!config) {
+      throw new NotFoundException('News API Config not found');
+    }
+
+    if (config.isActive) {
+      throw new BadRequestException('Cannot delete active configuration');
+    }
+
+    return this.prisma.newsAPIConfig.delete({
+      where: { id },
     });
   }
 }
