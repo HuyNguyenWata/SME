@@ -4,7 +4,8 @@ import {
   IsBoolean,
   IsInt,
   IsOptional,
-  IsString,  IsDateString,
+  IsString,
+  IsDateString,
 } from 'class-validator';
 
 export class CreateSocialCalendarDto {
@@ -84,4 +85,9 @@ export class CreateGeneratedContentDto {
   @IsOptional()
   @IsInt()
   userId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  instagram_post?: string;
 }
