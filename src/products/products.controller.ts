@@ -14,7 +14,11 @@ import {
   Res,
   Req,
   UnauthorizedException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
+import { PrismaService } from '../prisma/PrismaService/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 import {
   ApiBearerAuth,
@@ -91,7 +95,42 @@ export class ProductsController {
   constructor(
     private readonly products: ProductsService,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly redisService: RedisService,
   ) {}
+
+  private async checkQuota(userId: number) {
+    let limit = 5;
+
+    try {
+      const setting = await this.prisma.setting.findUnique({
+        where: { key: 'AI_PRODUCT_GENERATE_LIMIT' },
+      });
+      if (setting) {
+        limit = parseInt(setting.value, 10) || 5;
+      }
+    } catch (e) {
+      console.error('Failed to get AI_PRODUCT_GENERATE_LIMIT', e);
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const key = `ai_product_generate_usage:${userId}:${today}`;
+
+    const currentUsage = await this.redisService.incrementWithExpire(
+      key,
+      86400,
+    );
+
+    if (currentUsage > limit) {
+      await this.redisService.getClient().decr(key);
+      throw new HttpException(
+        'Bạn đã vượt quá số lần tạo sản phẩm bằng AI trong hôm nay.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    return key;
+  }
 
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
@@ -226,7 +265,20 @@ export class ProductsController {
     @Body() body: GenerateContentStreamDto,
     @Req() req: import('express').Request,
     @Res() res: import('express').Response,
+    @User('id') userId: number,
   ) {
+    let quotaKey: string | null = null;
+    if (userId) {
+      try {
+        quotaKey = await this.checkQuota(userId);
+      } catch (error) {
+        if (error instanceof HttpException) {
+          return res.status(error.getStatus()).json({ message: error.message });
+        }
+        return res.status(500).json({ error: 'Failed to check quota' });
+      }
+    }
+
     try {
       const aiCoreUrl =
         this.configService.get<string>('AI_CORE_URL') ||
@@ -254,7 +306,18 @@ export class ProductsController {
         },
       );
 
+      if (!response.ok) {
+        if (quotaKey) {
+          await this.redisService.getClient().decr(quotaKey);
+        }
+        const errText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`AI Core returned ${response.status}: ${errText}`);
+      }
+
       if (!response.body) {
+        if (quotaKey) {
+          await this.redisService.getClient().decr(quotaKey);
+        }
         throw new Error('No body in response');
       }
 
@@ -265,10 +328,25 @@ export class ProductsController {
       const readable = Readable.fromWeb(
         response.body as import('stream/web').ReadableStream,
       );
+
+      readable.on('error', (err) => {
+        if (quotaKey) {
+          this.redisService.getClient().decr(quotaKey).catch(console.error);
+        }
+        console.error('Stream error:', err);
+      });
+
       readable.pipe(res);
     } catch (error) {
+      if (quotaKey) {
+        await this.redisService.getClient().decr(quotaKey);
+      }
       console.error('Failed to proxy AI stream:', error);
-      res.status(500).json({ error: 'Failed to proxy AI stream' });
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to proxy AI stream' });
+      } else {
+        res.end();
+      }
     }
   }
 
