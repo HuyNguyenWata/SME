@@ -19,6 +19,7 @@ import { AiJobModule } from './ai-job/ai-job.module';
 import { N8NModule } from './n8n/n8n.module';
 import { AiConfigModule } from './ai-config/ai-config.module';
 import { SocialAccountModule } from './social-account/social-account.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { SocialAccountModule } from './social-account/social-account.module';
     N8NModule,
     AiConfigModule,
     SocialAccountModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

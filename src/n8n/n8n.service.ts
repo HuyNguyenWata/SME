@@ -1,9 +1,13 @@
 import {
+  HttpException,
+  HttpStatus,
   Injectable,
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/PrismaService/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import {
   PublishDto,
   ContentDto,
@@ -25,7 +29,11 @@ export class N8NService {
   private readonly logger = new Logger(N8NService.name);
   private readonly webhookUrl: string;
   private readonly webhooInstant: string;
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly redisService: RedisService,
+  ) {
     this.webhookUrl = this.configService.getOrThrow<string>(
       'N8N_WEBHOOK_CREATE_CONTENT_URL',
     );
@@ -63,8 +71,40 @@ export class N8NService {
     }
   }
 
-  async createContent({ productId, note }: ContentDto) {
+  private async checkQuota(userId: number) {
+    let limit = 5;
+
     try {
+      const setting = await this.prisma.setting.findUnique({
+        where: { key: 'AI_CREATE_LIMIT' },
+      });
+      if (setting) {
+        limit = parseInt(setting.value, 10) || 5;
+      }
+    } catch (e) {
+      this.logger.error('Failed to get AI_CREATE_LIMIT', e);
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const key = `ai_create_usage:${userId}:${today}`;
+
+    const currentUsage = await this.redisService.incrementWithExpire(
+      key,
+      86400,
+    );
+
+    if (currentUsage > limit) {
+      throw new HttpException(
+        'Bạn đã vượt quá số lần tạo bài đăng bằng AI trong hôm nay.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  async createContent({ productId, note }: ContentDto, userId: number) {
+    try {
+      await this.checkQuota(userId);
+
       const form = new FormData();
 
       form.append('product_id', String(productId));

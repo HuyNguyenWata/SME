@@ -159,6 +159,7 @@ export class ChatController {
       storeId,
       customerId,
       guestId,
+      ipAddress: (req.headers['x-forwarded-for'] as string) || req.ip,
     });
   }
 
@@ -198,6 +199,7 @@ export class ChatController {
         storeId,
         customerId,
         guestId,
+        ipAddress: (req.headers['x-forwarded-for'] as string) || req.ip,
       });
 
       for await (const chunk of stream) {

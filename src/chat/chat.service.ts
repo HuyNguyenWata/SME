@@ -3,6 +3,8 @@ import {
   Logger,
   NotFoundException,
   InternalServerErrorException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
@@ -10,6 +12,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { AiCoreClientService } from '../common/services/ai-core-client.service';
+import { RedisService } from '../redis/redis.service';
 import type {
   AiCoreMessage,
   AiCoreStreamChunk,
@@ -23,6 +26,7 @@ type SendMessageInput = SendMessageDto & {
   storeId?: number;
   customerId?: number;
   guestId?: string;
+  ipAddress?: string;
 };
 
 type CreateConversationInput = CreateConversationDto & {
@@ -41,7 +45,64 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiCore: AiCoreClientService,
+    private readonly redis: RedisService,
   ) {}
+
+  // ==============================
+  // QUOTA CHECKING
+  // ==============================
+  private async checkQuota(
+    customerId?: number,
+    guestId?: string,
+    ipAddress?: string,
+  ): Promise<void> {
+    const isGuest = !customerId;
+    const settingKey = isGuest ? 'GUEST_CHAT_LIMIT' : 'USER_CHAT_LIMIT';
+    const defaultLimit = isGuest ? 5 : 50;
+
+    // Fetch limit from DB
+    const setting = await this.prisma.setting.findUnique({
+      where: { key: settingKey },
+    });
+    const limit = setting ? parseInt(setting.value, 10) : defaultLimit;
+
+    const dateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    if (!isGuest) {
+      // User quota check
+      const redisKey = `chat_quota:user:${customerId}:${dateStr}`;
+      const currentUsage = await this.redis.incrementWithExpire(
+        redisKey,
+        86400,
+      ); // 24h
+      if (currentUsage > limit) {
+        throw new HttpException(
+          'Bạn đã đạt giới hạn tin nhắn hôm nay. Vui lòng nâng cấp tài khoản.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    } else {
+      // Guest hybrid check: guestId (individual) + IP (global network limit to prevent script spam)
+      const guestRedisKey = `chat_quota:guest_id:${guestId || 'unknown'}:${dateStr}`;
+      const ipRedisKey = `chat_quota:guest_ip:${ipAddress || 'unknown-ip'}:${dateStr}`;
+
+      const ipLimit = limit * 5; // Allow an IP to have 5x the normal guest limit (to handle cafes/offices)
+
+      // Increment both
+      const guestUsage = await this.redis.incrementWithExpire(
+        guestRedisKey,
+        86400,
+      );
+      const ipUsage = await this.redis.incrementWithExpire(ipRedisKey, 86400);
+
+      if (guestUsage > limit || ipUsage > ipLimit) {
+        throw new HttpException(
+          'Bạn đã đạt giới hạn dùng thử hôm nay. Vui lòng đăng nhập để tiếp tục.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    }
+  }
 
   // ==============================
   // LIST CONVERSATIONS
@@ -165,6 +226,9 @@ export class ChatService {
       where: whereClause,
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
+
+    // 1.5 Check quota
+    await this.checkQuota(dto.customerId, dto.guestId, dto.ipAddress);
 
     let finalContextProductId = conversation.contextProductId;
     if (dto.contextProductId !== undefined) {
@@ -297,6 +361,9 @@ export class ChatService {
       where: whereClause,
     });
     if (!conversation) throw new NotFoundException('Conversation not found');
+
+    // 1.5 Check quota
+    await this.checkQuota(dto.customerId, dto.guestId, dto.ipAddress);
 
     let finalContextProductId = conversation.contextProductId;
     if (dto.contextProductId !== undefined) {
