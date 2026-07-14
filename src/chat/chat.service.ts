@@ -66,19 +66,19 @@ export class ChatService {
     });
     const limit = setting ? parseInt(setting.value, 10) : defaultLimit;
 
-    const dateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const dateStr = new Date().toISOString().slice(0, 7); // YYYY-MM
 
     if (!isGuest) {
       // User quota check
       const redisKey = `chat_quota:user:${customerId}:${dateStr}`;
       const currentUsage = await this.redis.incrementWithExpire(
         redisKey,
-        86400,
-      ); // 24h
+        2592000,
+      ); // 30 days
       if (currentUsage > limit) {
         await this.redis.getClient().decr(redisKey);
         throw new HttpException(
-          'Bạn đã đạt giới hạn tin nhắn hôm nay. Vui lòng nâng cấp tài khoản.',
+          'Bạn đã đạt giới hạn tin nhắn tháng này. Vui lòng nâng cấp tài khoản.',
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }
@@ -93,15 +93,15 @@ export class ChatService {
       // Increment both
       const guestUsage = await this.redis.incrementWithExpire(
         guestRedisKey,
-        86400,
+        2592000,
       );
-      const ipUsage = await this.redis.incrementWithExpire(ipRedisKey, 86400);
+      const ipUsage = await this.redis.incrementWithExpire(ipRedisKey, 2592000);
 
       if (guestUsage > limit || ipUsage > ipLimit) {
         await this.redis.getClient().decr(guestRedisKey);
         await this.redis.getClient().decr(ipRedisKey);
         throw new HttpException(
-          'Bạn đã đạt giới hạn dùng thử hôm nay. Vui lòng đăng nhập để tiếp tục.',
+          'Bạn đã đạt giới hạn dùng thử tháng này. Vui lòng đăng nhập để tiếp tục.',
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }

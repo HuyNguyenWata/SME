@@ -113,18 +113,18 @@ export class ProductsController {
       console.error('Failed to get AI_PRODUCT_GENERATE_LIMIT', e);
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    const key = `ai_product_generate_usage:${userId}:${today}`;
+    const monthStr = new Date().toISOString().slice(0, 7);
+    const key = `ai_product_generate_usage:${userId}:${monthStr}`;
 
     const currentUsage = await this.redisService.incrementWithExpire(
       key,
-      86400,
+      2592000,
     );
 
     if (currentUsage > limit) {
       await this.redisService.getClient().decr(key);
       throw new HttpException(
-        'Bạn đã vượt quá số lần tạo sản phẩm bằng AI trong hôm nay.',
+        'Bạn đã vượt quá số lần tạo sản phẩm bằng AI trong tháng này.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

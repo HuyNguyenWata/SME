@@ -28,19 +28,19 @@ export class AiConfigService {
       this.logger.error('Failed to get AI_POST_LIMIT', e);
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
 
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
     const publishedCount = await this.prisma.socialPost.count({
       where: {
         status: 'PUBLISHED',
         productId: null,
         createdAt: {
-          gte: today,
-          lt: tomorrow,
+          gte: startOfMonth,
+          lt: endOfMonth,
         },
         generatedContent: {
           userId,
@@ -50,7 +50,7 @@ export class AiConfigService {
 
     if (publishedCount >= limit) {
       throw new HttpException(
-        'Bạn đã vượt quá số lượng bài đăng AI trong hôm nay.',
+        'Bạn đã vượt quá số lượng bài đăng AI trong tháng này.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

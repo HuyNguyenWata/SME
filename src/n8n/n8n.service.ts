@@ -85,26 +85,26 @@ export class N8NService {
       this.logger.error('Failed to get AI_CREATE_LIMIT', e);
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    const key = `ai_create_usage:${userId}:${today}`;
+    const monthStr = new Date().toISOString().slice(0, 7);
+    const key = `ai_create_usage:${userId}:${monthStr}`;
 
     const currentUsage = await this.redisService.incrementWithExpire(
       key,
-      86400,
+      2592000,
     );
 
     if (currentUsage > limit) {
       await this.redisService.getClient().decr(key);
       throw new HttpException(
-        'Bạn đã vượt quá số lần tạo bài đăng bằng AI trong hôm nay.',
+        'Bạn đã vượt quá số lần tạo bài đăng bằng AI trong tháng này.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
   }
 
   async createContent({ productId, note }: ContentDto, userId: number) {
-    const today = new Date().toISOString().split('T')[0];
-    const key = `ai_create_usage:${userId}:${today}`;
+    const monthStr = new Date().toISOString().slice(0, 7);
+    const key = `ai_create_usage:${userId}:${monthStr}`;
     try {
       await this.checkQuota(userId);
 
@@ -152,19 +152,19 @@ export class N8NService {
       this.logger.error('Failed to get AI_POST_LIMIT', e);
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
 
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
     const publishedCount = await this.prisma.socialPost.count({
       where: {
         status: 'PUBLISHED',
         productId: null,
         createdAt: {
-          gte: today,
-          lt: tomorrow,
+          gte: startOfMonth,
+          lt: endOfMonth,
         },
         generatedContent: {
           userId,
@@ -174,7 +174,7 @@ export class N8NService {
 
     if (publishedCount >= limit) {
       throw new HttpException(
-        'Bạn đã vượt quá số lượng bài đăng AI trong hôm nay.',
+        'Bạn đã vượt quá số lượng bài đăng AI trong tháng này.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
