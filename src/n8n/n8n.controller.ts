@@ -8,7 +8,11 @@ interface AuthRequest extends Request {
     [key: string]: any;
   };
 }
-import { ContentDto, PublishDto } from './dto/n8n.request.dto';
+import {
+  ContentDto,
+  PublishDto,
+  InstantSubmitRequestDto,
+} from './dto/n8n.request.dto';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
@@ -35,10 +39,13 @@ export class N8NController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  async instantSubmit(@Req() req: AuthRequest) {
-    console.log(req.user);
+  async instantSubmit(
+    @Req() req: AuthRequest,
+    @Body() body: InstantSubmitRequestDto,
+  ) {
     return this.n8NService.instantSubmit({
       userId: req.user.id,
+      configId: body.configId,
     });
   }
 }

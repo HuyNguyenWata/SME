@@ -180,13 +180,14 @@ export class N8NService {
     }
   }
 
-  async instantSubmit({ userId }: InstantSubmitDto) {
+  async instantSubmit({ userId, configId }: InstantSubmitDto) {
     await this.checkAIPostQuota(userId);
 
     try {
       const form = new FormData();
 
       form.append('user_id', String(userId));
+      form.append('config_id', String(configId));
 
       const res = await fetch(this.webhooInstant, {
         method: 'POST',
