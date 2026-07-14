@@ -102,6 +102,8 @@ export class N8NService {
   }
 
   async createContent({ productId, note }: ContentDto, userId: number) {
+    const today = new Date().toISOString().split('T')[0];
+    const key = `ai_create_usage:${userId}:${today}`;
     try {
       await this.checkQuota(userId);
 
@@ -127,6 +129,9 @@ export class N8NService {
 
       return JSON.parse(text) as unknown;
     } catch (error) {
+      if (!(error instanceof HttpException)) {
+        await this.redisService.getClient().decr(key);
+      }
       console.error('createContent error:', error);
       throw error;
     }
