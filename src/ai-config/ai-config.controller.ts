@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Delete,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -45,5 +46,13 @@ export class AiConfigController {
   @ApiBearerAuth()
   getNewsApiConfigs(@Req() req) {
     return this.service.getNewsApiConfigs(req.user.id);
+  }
+
+  @Delete('news-api-configs/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  deleteNewsApiConfig(@Param('id') id: string, @Req() req) {
+    return this.service.deleteNewsApiConfig(Number(id), req.user.id);
   }
 }

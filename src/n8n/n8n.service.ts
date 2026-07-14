@@ -138,7 +138,51 @@ export class N8NService {
     }
   }
 
+  private async checkAIPostQuota(userId: number) {
+    let limit = 50;
+
+    try {
+      const setting = await this.prisma.setting.findUnique({
+        where: { key: 'AI_POST_LIMIT' },
+      });
+      if (setting) {
+        limit = parseInt(setting.value, 10) || 50;
+      }
+    } catch (e) {
+      this.logger.error('Failed to get AI_POST_LIMIT', e);
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const publishedCount = await this.prisma.socialPost.count({
+      where: {
+        status: 'PUBLISHED',
+        productId: null,
+        createdAt: {
+          gte: today,
+          lt: tomorrow,
+        },
+        generatedContent: {
+          userId,
+        },
+      },
+    });
+
+    if (publishedCount >= limit) {
+      throw new HttpException(
+        'Bạn đã vượt quá số lượng bài đăng AI trong hôm nay.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
   async instantSubmit({ userId }: InstantSubmitDto) {
+    await this.checkAIPostQuota(userId);
+
     try {
       const form = new FormData();
 
@@ -161,6 +205,9 @@ export class N8NService {
 
       return JSON.parse(text) as unknown;
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       console.error('createContent error:', error);
       throw error;
     }
