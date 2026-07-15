@@ -185,6 +185,8 @@ export class ProductsRepository {
       isThumbnail: boolean;
       sortOrder: number;
     }[],
+    existingImages?: string | string[],
+    updateImagesFlag?: boolean,
   ) {
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -211,7 +213,53 @@ export class ProductsRepository {
           },
         });
 
-        if (images.length > 0) {
+        if (updateImagesFlag) {
+          const keptUrls = existingImages
+            ? Array.isArray(existingImages)
+              ? existingImages
+              : [existingImages]
+            : [];
+
+          await tx.productImage.deleteMany({
+            where: {
+              productId: id,
+              url: { notIn: keptUrls },
+            },
+          });
+
+          if (images.length > 0) {
+            const lastImage = await tx.productImage.findFirst({
+              where: { productId: id },
+              orderBy: { sortOrder: 'desc' },
+            });
+            let currentSortOrder = lastImage ? lastImage.sortOrder + 1 : 0;
+
+            await tx.productImage.createMany({
+              data: images.map((image) => ({
+                productId: id,
+                url: image.url,
+                isThumbnail: currentSortOrder === 0,
+                sortOrder: currentSortOrder++,
+              })),
+            });
+          }
+
+          // Ensure at least one thumbnail if images exist
+          const remainingImages = await tx.productImage.findMany({
+            where: { productId: id },
+            orderBy: { sortOrder: 'asc' },
+          });
+
+          if (
+            remainingImages.length > 0 &&
+            !remainingImages.some((img) => img.isThumbnail)
+          ) {
+            await tx.productImage.update({
+              where: { id: remainingImages[0].id },
+              data: { isThumbnail: true },
+            });
+          }
+        } else if (images.length > 0) {
           await tx.productImage.deleteMany({
             where: { productId: id },
           });

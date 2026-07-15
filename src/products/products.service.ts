@@ -380,7 +380,13 @@ export class ProductsService {
         )
       : [];
 
-    const updated = await this.products.update(id, internalDto, imageUrls);
+    const updated = await this.products.update(
+      id,
+      internalDto,
+      imageUrls,
+      dto.existingImages,
+      dto.updateImages === 'true',
+    );
     const response = this.toResponse(updated!);
 
     // Trigger vector db sync asynchronously
