@@ -337,7 +337,10 @@ export class ProductsService {
       changedFields.push('unit');
     if (dto.sku !== undefined && dto.sku !== oldProduct.sku)
       changedFields.push('sku');
-    if (dto.status !== undefined && dto.status !== oldProduct.status)
+    if (
+      dto.status !== undefined &&
+      String(dto.status) !== String(oldProduct.status)
+    )
       changedFields.push('status');
     if (
       dto.lowStockThreshold !== undefined &&
@@ -689,8 +692,10 @@ export class ProductsService {
         productId: p.id,
         productName: p.name,
         quantity: p.quantity,
+        unit: p.unit,
         lowStockThreshold: p.lowStockThreshold,
         message: `${p.quantity} ${p.unit} remaining`,
+        type: 'low_stock',
         severity:
           p.quantity === 0
             ? ('high' as const)
