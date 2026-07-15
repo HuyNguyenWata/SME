@@ -366,24 +366,38 @@ export class ProductsService {
         : {}),
     };
 
-    const imageUrls = images?.length
+    const uploadedImages = images?.length
       ? await Promise.all(
-          images.map(async (file, index) => {
+          images.map(async (file) => {
             const uploaded = await this.cloudinaryService.upload(file);
 
             return {
               url: uploaded.secure_url,
-              isThumbnail: index === 0,
-              sortOrder: index,
+              isThumbnail: false,
+              sortOrder: 0,
             };
           }),
         )
       : [];
 
+    const extraUrls = Array.isArray(dto.imageUrls)
+      ? dto.imageUrls
+      : dto.imageUrls
+        ? [dto.imageUrls]
+        : [];
+
+    const extraImages = extraUrls.map((url) => ({
+      url,
+      isThumbnail: false,
+      sortOrder: 0,
+    }));
+
+    const allNewImages = [...extraImages, ...uploadedImages];
+
     const updated = await this.products.update(
       id,
       internalDto,
-      imageUrls,
+      allNewImages,
       dto.existingImages,
       dto.updateImages === 'true',
     );
