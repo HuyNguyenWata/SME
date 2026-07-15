@@ -96,24 +96,22 @@ export class AuthController {
     return this.auth.customerLogin(storeId, dto);
   }
 
-  @Get('store/:id/check')
-  @ApiOperation({ summary: 'Check if a store ID is valid' })
-  checkStore(@Param('id') id: string) {
-    const storeId = parseInt(id, 10);
-    if (isNaN(storeId)) {
-      return { valid: false };
-    }
-    return this.auth.checkStore(storeId);
+  @Get('store/:slug/check')
+  @ApiOperation({ summary: 'Check if a store slug is valid' })
+  checkStore(@Param('slug') slug: string) {
+    return this.auth.checkStore(slug);
   }
 
-  @Get('store/:id/info')
-  @ApiOperation({ summary: 'Get basic information of a store' })
-  storeInfo(@Param('id') id: string) {
-    const storeId = parseInt(id, 10);
-    if (isNaN(storeId)) {
-      throw new UnauthorizedException('Invalid store ID');
-    }
-    return this.auth.storeInfo(storeId);
+  @Get('store/:slug/info')
+  @ApiOperation({ summary: 'Get basic information of a store by slug' })
+  storeInfo(@Param('slug') slug: string) {
+    return this.auth.storeInfo(slug);
+  }
+
+  @Get('store/:slug/resolve')
+  @ApiOperation({ summary: 'Resolve store slug to numeric id' })
+  resolveStoreSlug(@Param('slug') slug: string) {
+    return this.auth.resolveStoreSlug(slug);
   }
 
   @Put('store/me')

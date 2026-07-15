@@ -33,7 +33,7 @@ export class UserService {
       this.prisma.user.count({ where }),
     ]);
     return {
-      items: items.map(this.toResponse),
+      items: items.map((u) => this.toResponse(u)),
       total,
       page: query.page,
       limit: query.limit,
@@ -55,11 +55,17 @@ export class UserService {
     });
     if (exists) throw new ConflictException('Email already exists');
 
+    const slugExists = await this.prisma.user.findUnique({
+      where: { slug: dto.slug },
+    });
+    if (slugExists) throw new ConflictException('Slug already exists');
+
     const user = await this.prisma.user.create({
       data: {
         email: dto.email.toLowerCase(),
         password: await bcrypt.hash(dto.password, 12),
         name: dto.name,
+        slug: dto.slug,
         role: dto.role,
         categoryId: dto.categoryId,
         isActive: dto.isActive ?? true,
@@ -76,6 +82,7 @@ export class UserService {
       data: {
         email: dto.email?.toLowerCase(),
         name: dto.name,
+        slug: dto.slug,
         role: dto.role,
         categoryId: dto.categoryId,
         isActive: dto.isActive,
@@ -94,6 +101,7 @@ export class UserService {
   private toResponse(user: {
     id: number;
     email: string;
+    slug: string;
     name: string;
     role: string;
     categoryId: number | null;
@@ -105,6 +113,7 @@ export class UserService {
     return {
       id: user.id,
       email: user.email,
+      slug: user.slug,
       name: user.name,
       role: user.role,
       categoryId: user.categoryId,

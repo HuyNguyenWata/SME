@@ -31,11 +31,17 @@ export class AuthService {
     });
     if (existing) throw new ConflictException('Email already exists');
 
+    const slugExists = await this.prisma.user.findUnique({
+      where: { slug: dto.slug },
+    });
+    if (slugExists) throw new ConflictException('Slug already exists');
+
     const user = await this.prisma.user.create({
       data: {
         email: dto.email.toLowerCase(),
         password: await bcrypt.hash(dto.password, 12),
         name: dto.name,
+        slug: dto.slug,
         role: dto.role ?? 'USER',
         categoryId: dto.categoryId,
         isActive: true,
@@ -81,18 +87,26 @@ export class AuthService {
     return this.createTokenResponse(user);
   }
 
-  async checkStore(storeId: number) {
+  async checkStore(slug: string) {
+    const store = await this.prisma.user.findUnique({
+      where: { slug },
+    });
+    return { valid: !!store && store.role === 'ADMIN' };
+  }
+
+  async checkStoreById(storeId: number) {
     const store = await this.prisma.user.findUnique({
       where: { id: storeId },
     });
     return { valid: !!store && store.role === 'ADMIN' };
   }
 
-  async storeInfo(storeId: number) {
-    const store = await this.prisma.user.findUnique({
-      where: { id: storeId, role: 'ADMIN' },
+  async storeInfo(slug: string) {
+    const store = await this.prisma.user.findFirst({
+      where: { slug, role: 'ADMIN' },
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         logoUrl: true,
@@ -100,9 +114,20 @@ export class AuthService {
     });
 
     if (!store) {
-      throw new BadRequestException('Invalid Store ID');
+      throw new BadRequestException('Invalid Store slug');
     }
 
+    return store;
+  }
+
+  async resolveStoreSlug(slug: string) {
+    const store = await this.prisma.user.findUnique({
+      where: { slug },
+      select: { id: true, slug: true },
+    });
+    if (!store) {
+      throw new BadRequestException('Store not found');
+    }
     return store;
   }
 
@@ -118,6 +143,7 @@ export class AuthService {
       },
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         logoUrl: true,
@@ -134,6 +160,7 @@ export class AuthService {
       },
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         logoUrl: true,
@@ -142,7 +169,7 @@ export class AuthService {
   }
 
   async customerRegister(storeId: number, dto: CustomerRegisterDto) {
-    const storeCheck = await this.checkStore(storeId);
+    const storeCheck = await this.checkStoreById(storeId);
     if (!storeCheck.valid) {
       throw new BadRequestException('Invalid Store ID');
     }
@@ -182,7 +209,7 @@ export class AuthService {
   }
 
   async customerLogin(storeId: number, dto: CustomerLoginDto) {
-    const storeCheck = await this.checkStore(storeId);
+    const storeCheck = await this.checkStoreById(storeId);
     if (!storeCheck.valid) {
       throw new BadRequestException('Invalid Store ID');
     }
@@ -267,6 +294,7 @@ export class AuthService {
   private async createTokenResponse(user: {
     id: number;
     email: string;
+    slug: string;
     name: string;
     role: string;
     isActive: boolean;
@@ -300,6 +328,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        slug: user.slug,
         name: user.name,
         role: user.role,
         isActive: user.isActive,
