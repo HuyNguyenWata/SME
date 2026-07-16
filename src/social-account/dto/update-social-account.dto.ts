@@ -16,4 +16,8 @@ export class UpdateSocialAccountDto {
   @IsOptional()
   @IsNumber()
   platformId?: number;
+
+  @IsOptional()
+  @IsString()
+  accountId?: string;
 }

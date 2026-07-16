@@ -170,6 +170,7 @@ export class SocialAccountService {
     } = {
       accountName: dto.accountName,
       isActive: dto.isActive,
+      ...(dto.accountId && { accountId: dto.accountId }),
     };
 
     if (dto.accessToken) {
