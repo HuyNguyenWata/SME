@@ -16,14 +16,22 @@ export interface FacebookPageInfo {
   id: string;
   name: string;
   access_token: string;
-  instagram_business_account?: { id: string };
+}
+
+export interface InstagramAccountInfo {
+  id: string;
+  username?: string;
+  name?: string;
+  pageId: string;
+  pageAccessToken: string;
 }
 
 export interface FacebookValidateResponse {
   userId: string;
   userName: string;
   isUserToken: boolean;
-  pages?: FacebookPageInfo[];
+  facebookPages?: FacebookPageInfo[];
+  instagramAccounts?: InstagramAccountInfo[];
   accountId?: string;
   pageId?: string;
   pageAccessToken?: string;
@@ -121,6 +129,28 @@ export class SocialAccountService {
     });
   }
 
+  async createMany(dtos: CreateSocialAccountPayload[]) {
+    return this.prisma.socialAccount.createMany({
+      data: dtos.map((dto) => ({
+        userId: dto.userId,
+        platformId: dto.platformId,
+        accountName: dto.accountName,
+        accountId: dto.accountId,
+        pageId: dto.pageId,
+        instagramId: dto.instagramId,
+        accessToken: dto.accessToken,
+        refreshToken: dto.refreshToken,
+        tokenExpiresAt: dto.tokenExpiresAt
+          ? new Date(dto.tokenExpiresAt)
+          : null,
+        appId: dto.appId,
+        appSecret: dto.appSecret,
+        webhookSecret: dto.webhookSecret,
+        isActive: dto.isActive ?? true,
+      })),
+    });
+  }
+
   async update(id: number, dto: UpdateSocialAccountDto) {
     await this.findOne(id);
 
@@ -152,7 +182,7 @@ export class SocialAccountService {
   async validateFacebookAccount(
     dto: ValidateFacebookDto,
   ): Promise<FacebookValidateResponse> {
-    const { accessToken, platform } = dto;
+    const { accessToken } = dto;
 
     // ============================
     // 1. Validate token
@@ -179,21 +209,52 @@ export class SocialAccountService {
     // 2. Check User Token
     // ============================
     const pagesRes = await fetch(
-      `https://graph.facebook.com/v23.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${accessToken}`,
+      `https://graph.facebook.com/v23.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,name}&access_token=${accessToken}`,
     );
 
     const pages = (await pagesRes.json()) as {
-      data?: Array<FacebookPageInfo>;
+      data?: Array<
+        FacebookPageInfo & {
+          instagram_business_account?: {
+            id: string;
+            username?: string;
+            name?: string;
+          };
+        }
+      >;
       error?: { message: string };
     };
 
     if (pagesRes.ok && !pages.error && Array.isArray(pages.data)) {
       isUserToken = true;
+
+      const facebookPages: FacebookPageInfo[] = [];
+      const instagramAccounts: InstagramAccountInfo[] = [];
+
+      pages.data.forEach((page) => {
+        facebookPages.push({
+          id: page.id,
+          name: page.name,
+          access_token: page.access_token,
+        });
+
+        if (page.instagram_business_account?.id) {
+          instagramAccounts.push({
+            id: page.instagram_business_account.id,
+            username: page.instagram_business_account.username,
+            name: page.instagram_business_account.name,
+            pageId: page.id,
+            pageAccessToken: page.access_token,
+          });
+        }
+      });
+
       return {
         userId: me.id,
         userName: me.name,
         isUserToken,
-        pages: pages.data,
+        facebookPages,
+        instagramAccounts,
       };
     }
 
@@ -201,11 +262,16 @@ export class SocialAccountService {
     // 3. Try to check if this is a Page Token
     // ============================
     const pageRes = await fetch(
-      `https://graph.facebook.com/v23.0/${me.id}?fields=id&access_token=${accessToken}`,
+      `https://graph.facebook.com/v23.0/${me.id}?fields=id,instagram_business_account{id,username,name}&access_token=${accessToken}`,
     );
 
     const page = (await pageRes.json()) as {
       id?: string;
+      instagram_business_account?: {
+        id: string;
+        username?: string;
+        name?: string;
+      };
       error?: { message: string };
     };
 
@@ -217,52 +283,32 @@ export class SocialAccountService {
       );
     }
 
-    const pageId = me.id;
-    const pageAccessToken = accessToken;
+    const facebookPages: FacebookPageInfo[] = [
+      {
+        id: me.id,
+        name: me.name,
+        access_token: accessToken,
+      },
+    ];
 
-    // ============================
-    // 4. Facebook
-    // ============================
-    let accountId = pageId;
-    let instagramBusinessAccountId: string | undefined;
+    const instagramAccounts: InstagramAccountInfo[] = [];
 
-    // ============================
-    // 5. Instagram
-    // ============================
-    if (platform === 'instagram') {
-      const igRes = await fetch(
-        `https://graph.facebook.com/v23.0/${pageId}?fields=instagram_business_account&access_token=${pageAccessToken}`,
-      );
-
-      const ig = (await igRes.json()) as {
-        instagram_business_account?: { id: string };
-        error?: { message: string };
-      };
-
-      if (!igRes.ok || ig.error) {
-        throw new BadRequestException(
-          ig.error?.message || 'Cannot access Instagram Business Account.',
-        );
-      }
-
-      if (!ig.instagram_business_account?.id) {
-        throw new BadRequestException(
-          'This Facebook Page is not connected to an Instagram Business Account.',
-        );
-      }
-
-      instagramBusinessAccountId = ig.instagram_business_account.id;
-      accountId = instagramBusinessAccountId;
+    if (page.instagram_business_account?.id) {
+      instagramAccounts.push({
+        id: page.instagram_business_account.id,
+        username: page.instagram_business_account.username,
+        name: page.instagram_business_account.name,
+        pageId: me.id,
+        pageAccessToken: accessToken,
+      });
     }
 
     return {
       userId: me.id,
       userName: me.name,
-      accountId,
-      pageId,
-      pageAccessToken,
-      instagramBusinessAccountId,
-      isUserToken,
+      isUserToken: false,
+      facebookPages,
+      instagramAccounts,
     };
   }
 }

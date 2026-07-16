@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   UseGuards,
   Req,
+  ParseArrayPipe,
 } from '@nestjs/common';
 
 import { SocialAccountService } from './social-account.service';
@@ -56,6 +57,22 @@ export class SocialAccountController {
       ...dto,
       userId: req.user.id,
     });
+  }
+
+  @Post('bulk')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  createMany(
+    @Body(new ParseArrayPipe({ items: CreateSocialAccountDto }))
+    dtos: CreateSocialAccountDto[],
+    @Req() req: { user: { id: number } },
+  ) {
+    const payloads = dtos.map((dto) => ({
+      ...dto,
+      userId: req.user.id,
+    }));
+    return this.socialAccountService.createMany(payloads);
   }
 
   @Patch(':id')
