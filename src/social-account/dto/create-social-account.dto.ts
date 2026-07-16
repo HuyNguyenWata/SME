@@ -1,9 +1,6 @@
-import { IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
-
+import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 export class CreateSocialAccountDto {
-  @IsInt()
-  platformId!: number;
-
+  @IsOptional()
   @IsString()
   accountName!: string;
 
@@ -20,31 +17,13 @@ export class CreateSocialAccountDto {
 
   @IsOptional()
   @IsString()
-  instagramId?: string;
-
-  @IsString()
   accessToken!: string;
 
   @IsOptional()
-  @IsString()
-  refreshToken?: string;
-
-  @IsOptional()
-  tokenExpiresAt?: string;
-
-  @IsOptional()
-  @IsString()
-  appId?: string;
-
-  @IsOptional()
-  @IsString()
-  appSecret?: string;
-
-  @IsOptional()
-  @IsString()
-  webhookSecret?: string;
-
-  @IsOptional()
   @IsBoolean()
-  isActive?: boolean;
+  isActive!: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  platformId!: number;
 }

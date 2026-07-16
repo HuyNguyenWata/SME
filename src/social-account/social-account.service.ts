@@ -1,4 +1,6 @@
-import { CreateSocialAccountDto } from './dto/create-social-account.dto';
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { UpdateSocialAccountDto } from './dto/update-social-account.dto';
 import { ValidateFacebookDto } from './dto/validate-facebook.dto';
 import {
@@ -156,20 +158,37 @@ export class SocialAccountService {
   }
 
   async update(id: number, dto: UpdateSocialAccountDto) {
-    await this.findOne(id);
+    const oldAccount = await this.findOne(id);
+
+    const updateData: {
+      accountName?: string;
+      isActive?: boolean;
+
+      accountId?: string;
+      accessToken?: string;
+    } = {
+      accountName: dto.accountName,
+      isActive: dto.isActive,
+    };
+
+    if (dto.accessToken) {
+      const platformName = oldAccount.platform.name as SocialPlatform;
+
+      const result = await this.validateFacebookAccount(
+        dto.accessToken,
+        platformName,
+      );
+
+      updateData.accountId = result.accountId;
+
+      updateData.accessToken = result.pageAccessToken;
+    }
 
     return this.prisma.socialAccount.update({
       where: {
         id,
       },
-
-      data: {
-        ...dto,
-
-        tokenExpiresAt: dto.tokenExpiresAt
-          ? new Date(dto.tokenExpiresAt)
-          : undefined,
-      },
+      data: updateData,
     });
   }
 
