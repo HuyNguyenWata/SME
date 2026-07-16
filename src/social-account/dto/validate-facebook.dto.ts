@@ -1,17 +1,10 @@
-import { IsEnum, IsString } from 'class-validator';
-
-export enum SocialPlatform {
-  Facebook = 'Facebook',
-  Instagram = 'Instagram',
-}
+import { IsIn, IsString } from 'class-validator';
 
 export class ValidateFacebookDto {
   @IsString()
   accessToken!: string;
 
-  @IsEnum(SocialPlatform)
-  platform!: SocialPlatform;
-
   @IsString()
-  accountName!: string;
+  @IsIn(['facebook', 'instagram'])
+  platform!: 'facebook' | 'instagram';
 }

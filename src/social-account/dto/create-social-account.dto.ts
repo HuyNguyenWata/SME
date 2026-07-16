@@ -6,6 +6,17 @@ export class CreateSocialAccountDto {
 
   @IsOptional()
   @IsString()
+  avatarUrl?: string;
+
+  @IsString()
+  accountId!: string;
+
+  @IsOptional()
+  @IsString()
+  pageId?: string;
+
+  @IsOptional()
+  @IsString()
   accessToken!: string;
 
   @IsOptional()
@@ -15,4 +26,27 @@ export class CreateSocialAccountDto {
   @IsOptional()
   @IsNumber()
   platformId!: number;
+
+  @IsOptional()
+  @IsString()
+  instagramId?: string;
+
+  @IsOptional()
+  @IsString()
+  refreshToken?: string;
+
+  @IsOptional()
+  tokenExpiresAt?: string | Date;
+
+  @IsOptional()
+  @IsString()
+  appId?: string;
+
+  @IsOptional()
+  @IsString()
+  appSecret?: string;
+
+  @IsOptional()
+  @IsString()
+  webhookSecret?: string;
 }

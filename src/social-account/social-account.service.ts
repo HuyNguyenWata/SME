@@ -1,16 +1,47 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { CreateSocialAccountDto } from './dto/create-social-account.dto';
 import { UpdateSocialAccountDto } from './dto/update-social-account.dto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ValidateFacebookDto } from './dto/validate-facebook.dto';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
-import { SocialPlatform } from './dto/validate-facebook.dto';
+
+type CreateSocialAccountPayload = CreateSocialAccountDto & {
+  userId: number;
+};
+
+export interface FacebookPageInfo {
+  id: string;
+  name: string;
+  access_token: string;
+  avatarUrl?: string;
+}
+
+export interface InstagramAccountInfo {
+  id: string;
+  username?: string;
+  name?: string;
+  pageId: string;
+  pageAccessToken: string;
+  avatarUrl?: string;
+}
+
 export interface FacebookValidateResponse {
   userId: string;
   userName: string;
-  accountId: string;
-  pageAccessToken: string;
+  avatarUrl?: string;
   isUserToken: boolean;
+  facebookPages?: FacebookPageInfo[];
+  instagramAccounts?: InstagramAccountInfo[];
+  accountId?: string;
+  pageId?: string;
+  pageAccessToken?: string;
+  instagramBusinessAccountId?: string;
 }
 
 @Injectable()
@@ -69,6 +100,64 @@ export class SocialAccountService {
     return account;
   }
 
+  async create(dto: CreateSocialAccountPayload) {
+    return this.prisma.socialAccount.create({
+      data: {
+        // lấy từ JWT
+        userId: dto.userId,
+
+        platformId: dto.platformId,
+
+        accountName: dto.accountName,
+
+        accountId: dto.accountId,
+
+        pageId: dto.pageId,
+
+        instagramId: dto.instagramId,
+
+        accessToken: dto.accessToken,
+
+        refreshToken: dto.refreshToken,
+
+        tokenExpiresAt: dto.tokenExpiresAt
+          ? new Date(dto.tokenExpiresAt)
+          : null,
+
+        appId: dto.appId,
+
+        appSecret: dto.appSecret,
+
+        webhookSecret: dto.webhookSecret,
+
+        isActive: dto.isActive ?? true,
+      },
+    });
+  }
+
+  async createMany(dtos: CreateSocialAccountPayload[]) {
+    return this.prisma.socialAccount.createMany({
+      data: dtos.map((dto) => ({
+        userId: dto.userId,
+        platformId: dto.platformId,
+        accountName: dto.accountName,
+        avatarUrl: dto.avatarUrl,
+        accountId: dto.accountId,
+        pageId: dto.pageId,
+        instagramId: dto.instagramId,
+        accessToken: dto.accessToken,
+        refreshToken: dto.refreshToken,
+        tokenExpiresAt: dto.tokenExpiresAt
+          ? new Date(dto.tokenExpiresAt)
+          : null,
+        appId: dto.appId,
+        appSecret: dto.appSecret,
+        webhookSecret: dto.webhookSecret,
+        isActive: dto.isActive ?? true,
+      })),
+    });
+  }
+
   async update(id: number, dto: UpdateSocialAccountDto) {
     const oldAccount = await this.findOne(id);
 
@@ -84,12 +173,12 @@ export class SocialAccountService {
     };
 
     if (dto.accessToken) {
-      const platformName = oldAccount.platform.name as SocialPlatform;
+      const platformName = oldAccount.platform.name as 'facebook' | 'instagram';
 
-      const result = await this.validateFacebookAccount(
-        dto.accessToken,
-        platformName,
-      );
+      const result = await this.validateFacebookAccount({
+        accessToken: dto.accessToken,
+        platform: platformName,
+      });
 
       updateData.accountId = result.accountId;
 
@@ -115,185 +204,146 @@ export class SocialAccountService {
   }
 
   async validateFacebookAccount(
-    accessToken: string,
-    platform: SocialPlatform,
+    dto: ValidateFacebookDto,
   ): Promise<FacebookValidateResponse> {
+    const { accessToken } = dto;
+
     // ============================
     // 1. Validate token
     // ============================
-
     const meRes = await fetch(
-      'https://graph.facebook.com/v23.0/me?fields=id,name',
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
+      `https://graph.facebook.com/v23.0/me?fields=id,name,picture.type(large)&access_token=${accessToken}`,
     );
 
-    const me = await meRes.json();
+    const me = (await meRes.json()) as {
+      id: string;
+      name: string;
+      picture?: { data?: { url?: string } };
+      error?: { message: string };
+    };
 
     if (!meRes.ok || me.error) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      throw new Error(me?.error?.message || 'Invalid Facebook Access Token');
+      throw new BadRequestException(
+        me.error?.message || 'Invalid Facebook Access Token',
+      );
     }
 
-    let pageId = '';
-    let pageAccessToken = '';
     let isUserToken = false;
 
     // ============================
     // 2. Check User Token
     // ============================
-
     const pagesRes = await fetch(
-      'https://graph.facebook.com/v23.0/me/accounts',
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
+      `https://graph.facebook.com/v23.0/me/accounts?fields=id,name,access_token,picture.type(large),instagram_business_account{id,username,name,profile_picture_url}&access_token=${accessToken}`,
     );
 
-    const pages = await pagesRes.json();
+    const pages = (await pagesRes.json()) as {
+      data?: Array<
+        FacebookPageInfo & {
+          picture?: { data?: { url?: string } };
+          instagram_business_account?: {
+            id: string;
+            username?: string;
+            name?: string;
+            profile_picture_url?: string;
+          };
+        }
+      >;
+      error?: { message: string };
+    };
 
-    if (
-      pagesRes.ok &&
-      !pages.error &&
-      Array.isArray(pages.data) &&
-      pages.data.length > 0
-    ) {
-      // User Token
+    if (pagesRes.ok && !pages.error && Array.isArray(pages.data)) {
       isUserToken = true;
 
-      pageId = pages.data[0].id;
-      pageAccessToken = pages.data[0].access_token;
-    } else {
-      // ============================
-      // 3. Check Page Token
-      // ============================
+      const facebookPages: FacebookPageInfo[] = [];
+      const instagramAccounts: InstagramAccountInfo[] = [];
 
-      const pageRes = await fetch(
-        `https://graph.facebook.com/v23.0/${me.id}?fields=id`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      );
+      pages.data.forEach((page) => {
+        facebookPages.push({
+          id: page.id,
+          name: page.name,
+          access_token: page.access_token,
+          avatarUrl: page.picture?.data?.url,
+        });
 
-      const page = await pageRes.json();
+        if (page.instagram_business_account?.id) {
+          instagramAccounts.push({
+            id: page.instagram_business_account.id,
+            username: page.instagram_business_account.username,
+            name: page.instagram_business_account.name,
+            pageId: page.id,
+            pageAccessToken: page.access_token,
+            avatarUrl: page.instagram_business_account.profile_picture_url,
+          });
+        }
+      });
 
-      if (!pageRes.ok || page.error) {
-        throw new Error(
-          pages.error?.message ||
-            page.error?.message ||
-            'Access Token is not valid.',
-        );
-      }
-
-      pageId = me.id;
-      pageAccessToken = accessToken;
+      return {
+        userId: me.id,
+        userName: me.name,
+        avatarUrl: me.picture?.data?.url,
+        isUserToken,
+        facebookPages,
+        instagramAccounts,
+      };
     }
 
     // ============================
-    // 4. Facebook
+    // 3. Try to check if this is a Page Token
     // ============================
+    const pageRes = await fetch(
+      `https://graph.facebook.com/v23.0/${me.id}?fields=id,picture.type(large),instagram_business_account{id,username,name,profile_picture_url}&access_token=${accessToken}`,
+    );
 
-    let accountId = pageId;
+    const page = (await pageRes.json()) as {
+      id?: string;
+      picture?: { data?: { url?: string } };
+      instagram_business_account?: {
+        id: string;
+        username?: string;
+        name?: string;
+        profile_picture_url?: string;
+      };
+      error?: { message: string };
+    };
 
-    let instagramBusinessAccountId: string | undefined;
-
-    // ============================
-    // 5. Instagram
-    // ============================
-
-    if (platform === SocialPlatform.Instagram) {
-      const igRes = await fetch(
-        `https://graph.facebook.com/v23.0/${pageId}?fields=instagram_business_account&access_token=${pageAccessToken}`,
+    if (!pageRes.ok || page.error) {
+      throw new BadRequestException(
+        pages.error?.message ||
+          page.error?.message ||
+          'Access Token is not a valid User Token or Page Token.',
       );
+    }
 
-      const ig = await igRes.json();
+    const facebookPages: FacebookPageInfo[] = [
+      {
+        id: me.id,
+        name: me.name,
+        access_token: accessToken,
+        avatarUrl: page.picture?.data?.url || me.picture?.data?.url,
+      },
+    ];
 
-      if (!igRes.ok || ig.error) {
-        throw new Error(
-          ig.error?.message || 'Cannot access Instagram Business Account',
-        );
-      }
+    const instagramAccounts: InstagramAccountInfo[] = [];
 
-      if (!ig.instagram_business_account?.id) {
-        throw new Error(
-          'Facebook Page is not connected to Instagram Business Account',
-        );
-      }
-
-      instagramBusinessAccountId = ig.instagram_business_account.id;
-
-      accountId = instagramBusinessAccountId || '';
+    if (page.instagram_business_account?.id) {
+      instagramAccounts.push({
+        id: page.instagram_business_account.id,
+        username: page.instagram_business_account.username,
+        name: page.instagram_business_account.name,
+        pageId: me.id,
+        pageAccessToken: accessToken,
+        avatarUrl: page.instagram_business_account.profile_picture_url,
+      });
     }
 
     return {
       userId: me.id,
-
       userName: me.name,
-
-      accountId,
-
-      pageAccessToken,
-
-      isUserToken,
-    };
-  }
-
-  async validateAndCreateAccount(
-    accessToken: string,
-    platformId: number,
-    userId: number,
-    accountName: string,
-  ) {
-    // 1. Lấy platform DB trước
-    const platformRecord = await this.prisma.socialPlatform.findUnique({
-      where: {
-        id: platformId,
-      },
-    });
-
-    if (!platformRecord) {
-      throw new NotFoundException('Social platform not found');
-    }
-
-    // 2. Convert DB name thành enum
-    const platform = platformRecord.name as SocialPlatform;
-
-    // 3. Validate Facebook
-    const result = await this.validateFacebookAccount(accessToken, platform);
-
-    // 4. Create
-    const account = await this.prisma.socialAccount.create({
-      data: {
-        userId,
-
-        platformId: platformRecord.id,
-
-        accountName,
-
-        accountId: result.accountId,
-
-        accessToken: result.pageAccessToken,
-
-        isActive: true,
-      },
-    });
-
-    return {
-      id: account.id,
-      accountName: account.accountName,
-      accountId: account.accountId,
-      platformId: account.platformId,
-      isActive: account.isActive,
+      avatarUrl: me.picture?.data?.url,
+      isUserToken: false,
+      facebookPages,
+      instagramAccounts,
     };
   }
 }

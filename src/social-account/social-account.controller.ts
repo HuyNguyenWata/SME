@@ -9,11 +9,13 @@ import {
   ParseIntPipe,
   UseGuards,
   Req,
+  ParseArrayPipe,
 } from '@nestjs/common';
 
 import { SocialAccountService } from './social-account.service';
 import { CreateSocialAccountDto } from './dto/create-social-account.dto';
 import { UpdateSocialAccountDto } from './dto/update-social-account.dto';
+import { ValidateFacebookDto } from './dto/validate-facebook.dto';
 
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -28,7 +30,7 @@ export class SocialAccountController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  findAll(@Req() req) {
+  findAll(@Req() req: { user?: { id?: number } }) {
     return this.socialAccountService.findAll(req?.user?.id);
   }
 
@@ -58,13 +60,30 @@ export class SocialAccountController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  create(@Body() dto: CreateSocialAccountDto, @Req() req) {
-    return this.socialAccountService.validateAndCreateAccount(
-      dto.accessToken,
-      dto.platformId,
-      req?.user.id,
-      dto.accountName,
-    );
+  create(
+    @Body() dto: CreateSocialAccountDto,
+    @Req() req: { user: { id: number } },
+  ) {
+    return this.socialAccountService.create({
+      ...dto,
+      userId: req.user.id,
+    });
+  }
+
+  @Post('bulk')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  createMany(
+    @Body(new ParseArrayPipe({ items: CreateSocialAccountDto }))
+    dtos: CreateSocialAccountDto[],
+    @Req() req: { user: { id: number } },
+  ) {
+    const payloads = dtos.map((dto) => ({
+      ...dto,
+      userId: req.user.id,
+    }));
+    return this.socialAccountService.createMany(payloads);
   }
 
   @Patch(':id')
@@ -79,5 +98,13 @@ export class SocialAccountController {
     dto: UpdateSocialAccountDto,
   ) {
     return this.socialAccountService.update(id, dto);
+  }
+
+  @Post('validate-facebook')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  validateFacebook(@Body() dto: ValidateFacebookDto) {
+    return this.socialAccountService.validateFacebookAccount(dto);
   }
 }
