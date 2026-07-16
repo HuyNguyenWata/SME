@@ -43,15 +43,28 @@ export class SocialAccountController {
     return this.socialAccountService.findOne(id);
   }
 
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  remove(
+    @Param('id', ParseIntPipe)
+    id: number,
+  ) {
+    return this.socialAccountService.remove(id);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
   create(@Body() dto: CreateSocialAccountDto, @Req() req) {
-    return this.socialAccountService.create({
-      ...dto,
-      userId: req.user.id,
-    });
+    return this.socialAccountService.validateAndCreateAccount(
+      dto.accessToken,
+      dto.platformId,
+      req?.user.id,
+      dto.accountName,
+    );
   }
 
   @Patch(':id')
@@ -66,16 +79,5 @@ export class SocialAccountController {
     dto: UpdateSocialAccountDto,
   ) {
     return this.socialAccountService.update(id, dto);
-  }
-
-  @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  @ApiBearerAuth()
-  remove(
-    @Param('id', ParseIntPipe)
-    id: number,
-  ) {
-    return this.socialAccountService.remove(id);
   }
 }
