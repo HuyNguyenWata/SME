@@ -26,4 +26,27 @@ export class CreateSocialAccountDto {
   @IsOptional()
   @IsNumber()
   platformId!: number;
+
+  @IsOptional()
+  @IsString()
+  instagramId?: string;
+
+  @IsOptional()
+  @IsString()
+  refreshToken?: string;
+
+  @IsOptional()
+  tokenExpiresAt?: string | Date;
+
+  @IsOptional()
+  @IsString()
+  appId?: string;
+
+  @IsOptional()
+  @IsString()
+  appSecret?: string;
+
+  @IsOptional()
+  @IsString()
+  webhookSecret?: string;
 }

@@ -100,17 +100,6 @@ export class SocialAccountController {
     return this.socialAccountService.update(id, dto);
   }
 
-  @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  @ApiBearerAuth()
-  remove(
-    @Param('id', ParseIntPipe)
-    id: number,
-  ) {
-    return this.socialAccountService.remove(id);
-  }
-
   @Post('validate-facebook')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')

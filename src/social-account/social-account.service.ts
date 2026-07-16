@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { CreateSocialAccountDto } from './dto/create-social-account.dto';
 import { UpdateSocialAccountDto } from './dto/update-social-account.dto';
 import { ValidateFacebookDto } from './dto/validate-facebook.dto';
 import {
@@ -172,12 +173,12 @@ export class SocialAccountService {
     };
 
     if (dto.accessToken) {
-      const platformName = oldAccount.platform.name as SocialPlatform;
+      const platformName = oldAccount.platform.name as 'facebook' | 'instagram';
 
-      const result = await this.validateFacebookAccount(
-        dto.accessToken,
-        platformName,
-      );
+      const result = await this.validateFacebookAccount({
+        accessToken: dto.accessToken,
+        platform: platformName,
+      });
 
       updateData.accountId = result.accountId;
 
