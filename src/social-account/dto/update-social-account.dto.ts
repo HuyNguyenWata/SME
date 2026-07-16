@@ -1,7 +1,19 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 
-import { CreateSocialAccountDto } from './create-social-account.dto';
+export class UpdateSocialAccountDto {
+  @IsOptional()
+  @IsString()
+  accountName?: string;
 
-export class UpdateSocialAccountDto extends PartialType(
-  CreateSocialAccountDto,
-) {}
+  @IsOptional()
+  @IsString()
+  accessToken?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  platformId?: number;
+}

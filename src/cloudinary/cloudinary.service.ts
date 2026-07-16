@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
@@ -13,20 +13,26 @@ export class CloudinaryService {
     });
   }
 
-  upload(file: Express.Multer.File): Promise<UploadApiResponse> {
-    return new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'products',
-        },
-        (error, result) => {
-          if (error) return reject(new Error(error.message));
-          resolve(result!);
-        },
-      );
+  async upload(file: Express.Multer.File): Promise<UploadApiResponse> {
+    try {
+      return await new Promise<UploadApiResponse>((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'products' },
+          (error, result) => {
+            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+            if (error) return reject(error);
+            if (!result) return reject(new Error('Upload failed'));
 
-      Readable.from(file.buffer).pipe(stream);
-    });
+            resolve(result);
+          },
+        );
+
+        Readable.from(file.buffer).pipe(stream);
+      });
+    } catch (error) {
+      console.error('Cloudinary upload error:', error);
+      throw new InternalServerErrorException('Failed to upload image');
+    }
   }
 
   uploadFromUrl(url: string): Promise<UploadApiResponse> {
