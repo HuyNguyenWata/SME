@@ -16,6 +16,7 @@ export interface FacebookPageInfo {
   id: string;
   name: string;
   access_token: string;
+  avatarUrl?: string;
 }
 
 export interface InstagramAccountInfo {
@@ -24,11 +25,13 @@ export interface InstagramAccountInfo {
   name?: string;
   pageId: string;
   pageAccessToken: string;
+  avatarUrl?: string;
 }
 
 export interface FacebookValidateResponse {
   userId: string;
   userName: string;
+  avatarUrl?: string;
   isUserToken: boolean;
   facebookPages?: FacebookPageInfo[];
   instagramAccounts?: InstagramAccountInfo[];
@@ -135,6 +138,7 @@ export class SocialAccountService {
         userId: dto.userId,
         platformId: dto.platformId,
         accountName: dto.accountName,
+        avatarUrl: dto.avatarUrl,
         accountId: dto.accountId,
         pageId: dto.pageId,
         instagramId: dto.instagramId,
@@ -188,12 +192,13 @@ export class SocialAccountService {
     // 1. Validate token
     // ============================
     const meRes = await fetch(
-      `https://graph.facebook.com/v23.0/me?fields=id,name&access_token=${accessToken}`,
+      `https://graph.facebook.com/v23.0/me?fields=id,name,picture.type(large)&access_token=${accessToken}`,
     );
 
     const me = (await meRes.json()) as {
       id: string;
       name: string;
+      picture?: { data?: { url?: string } };
       error?: { message: string };
     };
 
@@ -209,16 +214,18 @@ export class SocialAccountService {
     // 2. Check User Token
     // ============================
     const pagesRes = await fetch(
-      `https://graph.facebook.com/v23.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,name}&access_token=${accessToken}`,
+      `https://graph.facebook.com/v23.0/me/accounts?fields=id,name,access_token,picture.type(large),instagram_business_account{id,username,name,profile_picture_url}&access_token=${accessToken}`,
     );
 
     const pages = (await pagesRes.json()) as {
       data?: Array<
         FacebookPageInfo & {
+          picture?: { data?: { url?: string } };
           instagram_business_account?: {
             id: string;
             username?: string;
             name?: string;
+            profile_picture_url?: string;
           };
         }
       >;
@@ -236,6 +243,7 @@ export class SocialAccountService {
           id: page.id,
           name: page.name,
           access_token: page.access_token,
+          avatarUrl: page.picture?.data?.url,
         });
 
         if (page.instagram_business_account?.id) {
@@ -245,6 +253,7 @@ export class SocialAccountService {
             name: page.instagram_business_account.name,
             pageId: page.id,
             pageAccessToken: page.access_token,
+            avatarUrl: page.instagram_business_account.profile_picture_url,
           });
         }
       });
@@ -252,6 +261,7 @@ export class SocialAccountService {
       return {
         userId: me.id,
         userName: me.name,
+        avatarUrl: me.picture?.data?.url,
         isUserToken,
         facebookPages,
         instagramAccounts,
@@ -262,15 +272,17 @@ export class SocialAccountService {
     // 3. Try to check if this is a Page Token
     // ============================
     const pageRes = await fetch(
-      `https://graph.facebook.com/v23.0/${me.id}?fields=id,instagram_business_account{id,username,name}&access_token=${accessToken}`,
+      `https://graph.facebook.com/v23.0/${me.id}?fields=id,picture.type(large),instagram_business_account{id,username,name,profile_picture_url}&access_token=${accessToken}`,
     );
 
     const page = (await pageRes.json()) as {
       id?: string;
+      picture?: { data?: { url?: string } };
       instagram_business_account?: {
         id: string;
         username?: string;
         name?: string;
+        profile_picture_url?: string;
       };
       error?: { message: string };
     };
@@ -288,6 +300,7 @@ export class SocialAccountService {
         id: me.id,
         name: me.name,
         access_token: accessToken,
+        avatarUrl: page.picture?.data?.url || me.picture?.data?.url,
       },
     ];
 
@@ -300,12 +313,14 @@ export class SocialAccountService {
         name: page.instagram_business_account.name,
         pageId: me.id,
         pageAccessToken: accessToken,
+        avatarUrl: page.instagram_business_account.profile_picture_url,
       });
     }
 
     return {
       userId: me.id,
       userName: me.name,
+      avatarUrl: me.picture?.data?.url,
       isUserToken: false,
       facebookPages,
       instagramAccounts,

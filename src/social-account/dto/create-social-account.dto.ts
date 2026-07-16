@@ -7,6 +7,10 @@ export class CreateSocialAccountDto {
   @IsString()
   accountName!: string;
 
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
+
   @IsString()
   accountId!: string;
 

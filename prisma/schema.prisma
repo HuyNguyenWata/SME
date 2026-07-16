@@ -212,6 +212,7 @@ model SocialAccount {
   userId          Int            @map("user_id")
   platformId      Int            @map("platform_id")
   accountName     String?        @map("account_name")
+  avatarUrl       String?        @map("avatar_url")
   accountId       String         @map("account_id")
   pageId          String?        @map("page_id")
   instagramId     String?        @map("instagram_id")
