@@ -14,6 +14,7 @@ import {
 import { SocialAccountService } from './social-account.service';
 import { CreateSocialAccountDto } from './dto/create-social-account.dto';
 import { UpdateSocialAccountDto } from './dto/update-social-account.dto';
+import { ValidateFacebookDto } from './dto/validate-facebook.dto';
 
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -28,7 +29,7 @@ export class SocialAccountController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  findAll(@Req() req) {
+  findAll(@Req() req: { user?: { id?: number } }) {
     return this.socialAccountService.findAll(req?.user?.id);
   }
 
@@ -47,7 +48,10 @@ export class SocialAccountController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  create(@Body() dto: CreateSocialAccountDto, @Req() req) {
+  create(
+    @Body() dto: CreateSocialAccountDto,
+    @Req() req: { user: { id: number } },
+  ) {
     return this.socialAccountService.create({
       ...dto,
       userId: req.user.id,
@@ -77,5 +81,13 @@ export class SocialAccountController {
     id: number,
   ) {
     return this.socialAccountService.remove(id);
+  }
+
+  @Post('validate-facebook')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  validateFacebook(@Body() dto: ValidateFacebookDto) {
+    return this.socialAccountService.validateFacebookAccount(dto);
   }
 }
