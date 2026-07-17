@@ -16,6 +16,7 @@ import {
   UnauthorizedException,
   HttpException,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -229,7 +230,19 @@ export class ProductsController {
   @Roles('ADMIN', 'USER') // Adjust roles as needed, or omit @Roles to just require login
   @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FilesInterceptor('images'))
+  @UseInterceptors(
+    FilesInterceptor('images', 20, {
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return cb(
+            new BadRequestException('Only image files are allowed!'),
+            false,
+          );
+        }
+        cb(null, true);
+      },
+    }),
+  )
   @ApiOperation({ summary: 'Create product' })
   create(
     @User('id') userId: number,
@@ -355,7 +368,19 @@ export class ProductsController {
   @Roles('ADMIN', 'USER')
   @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FilesInterceptor('images'))
+  @UseInterceptors(
+    FilesInterceptor('images', 20, {
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return cb(
+            new BadRequestException('Only image files are allowed!'),
+            false,
+          );
+        }
+        cb(null, true);
+      },
+    }),
+  )
   @ApiOperation({ summary: 'Update product' })
   update(
     @Param('id') id: string,
