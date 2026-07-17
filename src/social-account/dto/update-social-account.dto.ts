@@ -20,4 +20,8 @@ export class UpdateSocialAccountDto {
   @IsOptional()
   @IsString()
   accountId?: string;
+
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
 }

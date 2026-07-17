@@ -110,6 +110,8 @@ export class SocialAccountService {
 
         accountName: dto.accountName,
 
+        avatarUrl: dto.avatarUrl,
+
         accountId: dto.accountId,
 
         pageId: dto.pageId,
@@ -167,9 +169,13 @@ export class SocialAccountService {
 
       accountId?: string;
       accessToken?: string;
+      avatarUrl?: string;
     } = {
       accountName: dto.accountName,
       isActive: dto.isActive,
+      accountId: dto.accountId,
+      avatarUrl: dto.avatarUrl,
+      accessToken: dto.accessToken,
       ...(dto.accountId && { accountId: dto.accountId }),
     };
 
@@ -181,9 +187,11 @@ export class SocialAccountService {
         platform: platformName,
       });
 
-      updateData.accountId = result.accountId;
-
-      updateData.accessToken = result.pageAccessToken;
+      // Chỉ cập nhật avatarUrl, vì accountId và accessToken đã lấy từ dto
+      // (validateFacebookAccount không trả về accountId và pageAccessToken ở level ngoài cùng)
+      if (result.avatarUrl) {
+        updateData.avatarUrl = result.avatarUrl;
+      }
     }
 
     return this.prisma.socialAccount.update({
