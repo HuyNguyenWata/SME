@@ -285,7 +285,7 @@ export class ContentService {
         website_article: dto.website_article,
         hashtags: dto.hashtags,
         seo_keywords: dto.seo_keywords,
-
+        instagram_post: dto.instagram_post,
         SourceArticle: dto.source_article_id
           ? {
               connect: {
