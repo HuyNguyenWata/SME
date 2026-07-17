@@ -285,6 +285,7 @@ export class ContentService {
         website_article: dto.website_article,
         hashtags: dto.hashtags,
         seo_keywords: dto.seo_keywords,
+        instagram_post: dto.instagram_post,
 
         SourceArticle: dto.source_article_id
           ? {
@@ -316,7 +317,7 @@ export class ContentService {
   }
 
   async createSocialCalendar(dto: CreateSocialCalendarDto) {
-    return this.prisma.socialCalendar.create({
+    const calendar = await this.prisma.socialCalendar.create({
       data: {
         status: dto.status,
         publishAt: dto.publishAt ? new Date(dto.publishAt) : undefined,
@@ -356,5 +357,18 @@ export class ContentService {
         generatedContent: true,
       },
     });
+
+    await this.prisma.socialPost.create({
+      data: {
+        status: dto.status,
+        publishedAt: dto.publishAt ? new Date(dto.publishAt) : undefined,
+        platformId: dto.platformId,
+        generatedContentId: dto.generatedContentId,
+        productId: dto.productId,
+        socialCalendarId: calendar.id,
+      },
+    });
+
+    return calendar;
   }
 }
