@@ -180,21 +180,44 @@ export class N8NService {
     }
   }
 
-  async instantSubmit({ userId, configId }: InstantSubmitDto) {
+  async instantSubmit({ userId, configId, platformIds }: InstantSubmitDto) {
     await this.checkAIPostQuota(userId);
 
     try {
-      const form = new FormData();
+      const payload: {
+        user_id: number;
+        config_id: number;
+        platforms?: { id: number; name: string }[];
+      } = {
+        user_id: userId,
+        config_id: configId,
+      };
 
-      form.append('user_id', String(userId));
-      form.append('config_id', String(configId));
+      if (Array.isArray(platformIds) && platformIds.length > 0) {
+        const platforms = await this.prisma.socialPlatform.findMany({
+          where: {
+            id: {
+              in: platformIds,
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+          },
+        });
+
+        if (platforms.length > 0) {
+          payload.platforms = platforms;
+        }
+      }
 
       const res = await fetch(this.webhooInstant, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
+          'Content-Type': 'application/json',
         },
-        body: form,
+        body: JSON.stringify(payload),
         signal: AbortSignal.timeout(30000),
       });
 

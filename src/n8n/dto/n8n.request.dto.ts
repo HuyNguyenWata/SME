@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional } from 'class-validator';
+import { IsInt, IsOptional, IsArray } from 'class-validator';
 
 export class PublishDto {
   @ApiProperty()
@@ -31,6 +31,12 @@ export class InstantSubmitRequestDto {
   @Type(() => Number)
   @IsInt()
   configId!: number;
+
+  @ApiPropertyOptional({ type: [Number] })
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  platformIds?: number[];
 }
 
 export class InstantSubmitDto {
@@ -43,4 +49,10 @@ export class InstantSubmitDto {
   @Type(() => Number)
   @IsInt()
   configId!: number;
+
+  @ApiPropertyOptional({ type: [Number] })
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  platformIds?: number[];
 }

@@ -43,9 +43,11 @@ export class N8NController {
     @Req() req: AuthRequest,
     @Body() body: InstantSubmitRequestDto,
   ) {
+    const platformIds = body.platformIds;
     return this.n8NService.instantSubmit({
       userId: req.user.id,
       configId: body.configId,
+      platformIds,
     });
   }
 }
