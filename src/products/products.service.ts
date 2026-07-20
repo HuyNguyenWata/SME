@@ -483,7 +483,7 @@ export class ProductsService {
   async getProductAnalytics(id: number, days: number = 14) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      select: { quantity: true },
+      select: { quantity: true, price: true },
     });
     if (!product) throw new NotFoundException('Product not found');
 
@@ -503,7 +503,10 @@ export class ProductsService {
       },
     });
 
-    const map = new Map<string, { change: number; in: number; out: number }>();
+    const map = new Map<
+      string,
+      { change: number; in: number; out: number; revenue: number }
+    >();
 
     const formatDate = (date: Date) => {
       const y = date.getFullYear();
@@ -515,11 +518,12 @@ export class ProductsService {
     for (let i = 0; i < days; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
-      map.set(formatDate(d), { change: 0, in: 0, out: 0 });
+      map.set(formatDate(d), { change: 0, in: 0, out: 0, revenue: 0 });
     }
 
     let totalIn = 0;
     let totalOut = 0;
+    let totalRevenue = 0;
 
     for (const history of histories) {
       const key = formatDate(history.createdAt);
@@ -534,12 +538,15 @@ export class ProductsService {
           entry.change -= history.changeQuantity;
           entry.out += history.changeQuantity;
           totalOut += history.changeQuantity;
+          entry.revenue += history.changeQuantity * Number(product.price);
+          totalRevenue += history.changeQuantity * Number(product.price);
         }
       }
     }
 
     const inventory: { date: string; value: number }[] = [];
-    const flow: { date: string; in: number; out: number }[] = [];
+    const flow: { date: string; in: number; out: number; revenue: number }[] =
+      [];
     let invTracker = product.quantity;
 
     const sortedEntries = [...map.entries()].sort((a, b) =>
@@ -548,7 +555,7 @@ export class ProductsService {
 
     for (const [date, data] of sortedEntries) {
       inventory.unshift({ date, value: invTracker });
-      flow.unshift({ date, in: data.in, out: data.out });
+      flow.unshift({ date, in: data.in, out: data.out, revenue: data.revenue });
       invTracker -= data.change;
     }
 
@@ -558,6 +565,7 @@ export class ProductsService {
       stats: {
         totalIn,
         totalOut,
+        totalRevenue,
         currentQuantity: product.quantity,
       },
     };

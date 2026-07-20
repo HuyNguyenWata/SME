@@ -52,4 +52,14 @@ export class InventoryController {
     const days = thresholdDays ? parseInt(thresholdDays, 10) : 60;
     return this.inventory.getDeadStock(days);
   }
+
+  @Get('analytics/system')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get system inventory analytics and revenue' })
+  getSystemAnalytics(@Query('days') days: string, @User('id') userId: number) {
+    const parsedDays = days ? parseInt(days, 10) : 30;
+    return this.inventory.getSystemAnalytics(userId, parsedDays);
+  }
 }
