@@ -259,6 +259,9 @@ model SocialPost {
   permalink          String?
   rawResponse        Json?            @map("raw_response")
   lastSyncAt         DateTime?        @map("last_sync_at")
+  likesCount         Int              @default(0) @map("likes_count")
+  sharesCount        Int              @default(0) @map("shares_count")
+  commentsCount      Int              @default(0) @map("comments_count")
   comments           SocialComment[]
   generatedContent   GeneratedContent @relation(fields: [generatedContentId], references: [id])
   platform           SocialPlatform   @relation(fields: [platformId], references: [id])
@@ -275,6 +278,7 @@ model SocialPost {
 model SocialComment {
   id           Int        @id @default(autoincrement())
   socialPostId Int        @map("social_post_id")
+  externalId   String?    @unique @map("external_id")
   author       String
   content      String
   createdAt    DateTime   @default(now()) @map("created_at")
