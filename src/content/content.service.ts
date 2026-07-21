@@ -501,4 +501,18 @@ export class ContentService {
       );
     }
   }
+
+  async syncSocialEngagementBulk(postIds: number[]) {
+    const results = await Promise.all(
+      postIds.map(async (id) => {
+        try {
+          await this.syncSocialEngagement(id);
+          return { id, success: true };
+        } catch (error: any) {
+          return { id, success: false, error: error.message };
+        }
+      }),
+    );
+    return results;
+  }
 }

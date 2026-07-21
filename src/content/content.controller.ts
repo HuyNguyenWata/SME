@@ -115,6 +115,14 @@ export class ContentController {
     return this.content.syncSocialEngagement(id);
   }
 
+  @Post('social-posts/sync-engagement-bulk')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  syncSocialEngagementBulk(@Body('postIds') postIds: number[]) {
+    return this.content.syncSocialEngagementBulk(postIds);
+  }
+
   @Post('generated-content')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
