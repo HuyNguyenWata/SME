@@ -20,6 +20,7 @@ import { N8NModule } from './n8n/n8n.module';
 import { AiConfigModule } from './ai-config/ai-config.module';
 import { SocialAccountModule } from './social-account/social-account.module';
 import { RedisModule } from './redis/redis.module';
+import { MetaAppConfigModule } from './common/services/meta-app-config.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { RedisModule } from './redis/redis.module';
     AiConfigModule,
     SocialAccountModule,
     RedisModule,
+    MetaAppConfigModule,
   ],
   controllers: [AppController],
   providers: [AppService],

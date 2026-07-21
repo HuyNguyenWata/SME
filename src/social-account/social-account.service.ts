@@ -10,6 +10,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
+import { MetaAppConfigService } from '../common/services/meta-app-config.service';
 
 type CreateSocialAccountPayload = CreateSocialAccountDto & {
   userId: number;
@@ -46,7 +47,10 @@ export interface FacebookValidateResponse {
 
 @Injectable()
 export class SocialAccountService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly metaAppConfig: MetaAppConfigService,
+  ) {}
 
   async getNewsCategories() {
     const data = await this.prisma.newsCategory.findMany({
@@ -212,10 +216,43 @@ export class SocialAccountService {
     });
   }
 
+  private async exchangeForLongLivedToken(
+    accessToken: string,
+    appId: string,
+    appSecret: string,
+    graphApiVersion: string,
+  ): Promise<string> {
+    const res = await fetch(
+      `https://graph.facebook.com/${graphApiVersion}/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${accessToken}`,
+    );
+    const data = (await res.json()) as {
+      access_token?: string;
+      error?: { message: string };
+    };
+    if (!res.ok || data.error || !data.access_token) {
+      throw new BadRequestException(
+        data.error?.message || 'Failed to exchange Facebook access token',
+      );
+    }
+    return data.access_token;
+  }
+
   async validateFacebookAccount(
     dto: ValidateFacebookDto,
   ): Promise<FacebookValidateResponse> {
-    const { accessToken } = dto;
+    let { accessToken } = dto;
+
+    // Exchange for a long-lived token first so the Page tokens derived from it
+    // never expire, using the single platform-wide Meta App.
+    const metaConfig = await this.metaAppConfig.getConfig();
+    if (metaConfig) {
+      accessToken = await this.exchangeForLongLivedToken(
+        accessToken,
+        metaConfig.appId,
+        metaConfig.appSecret,
+        metaConfig.graphApiVersion,
+      );
+    }
 
     // ============================
     // 1. Validate token

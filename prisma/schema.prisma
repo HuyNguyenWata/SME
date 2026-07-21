@@ -10,13 +10,16 @@ model User {
   id                Int                @id @default(autoincrement())
   email             String             @unique
   slug              String             @unique
-  password          String
+  password          String?
   name              String
   description       String?
   logoUrl           String?            @map("logo_url")
   role              String
   categoryId        Int?               @map("category_id")
   isActive          Boolean            @default(true) @map("is_active")
+  facebookId        String?            @unique @map("facebook_id")
+  provider          String             @default("LOCAL")
+  avatarUrl         String?            @map("avatar_url")
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @updatedAt @map("updated_at")
   conversations     Conversation[]
@@ -259,6 +262,9 @@ model SocialPost {
   permalink          String?
   rawResponse        Json?            @map("raw_response")
   lastSyncAt         DateTime?        @map("last_sync_at")
+  commentsCount      Int              @default(0) @map("comments_count")
+  likesCount         Int              @default(0) @map("likes_count")
+  sharesCount        Int              @default(0) @map("shares_count")
   comments           SocialComment[]
   generatedContent   GeneratedContent @relation(fields: [generatedContentId], references: [id])
   platform           SocialPlatform   @relation(fields: [platformId], references: [id])
@@ -278,6 +284,7 @@ model SocialComment {
   author       String
   content      String
   createdAt    DateTime   @default(now()) @map("created_at")
+  externalId   String?    @unique @map("external_id")
   socialPost   SocialPost @relation(fields: [socialPostId], references: [id])
 
   @@map("SocialComment")
