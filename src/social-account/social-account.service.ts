@@ -45,6 +45,16 @@ export interface FacebookValidateResponse {
   instagramBusinessAccountId?: string;
 }
 
+type RawFacebookPage = FacebookPageInfo & {
+  picture?: { data?: { url?: string } };
+  instagram_business_account?: {
+    id: string;
+    username?: string;
+    name?: string;
+    profile_picture_url?: string;
+  };
+};
+
 @Injectable()
 export class SocialAccountService {
   constructor(
@@ -237,6 +247,67 @@ export class SocialAccountService {
     return data.access_token;
   }
 
+  /**
+   * When Facebook grants access via its "granular" asset picker (the
+   * "reconnect / choose Pages" dialog), `/me/accounts` returns an empty list
+   * even though specific Pages were authorized — the grant only shows up in
+   * `granular_scopes[].target_ids` from /debug_token. Extract those Page IDs
+   * so we can fetch each Page directly instead.
+   */
+  private async getGranularPageIds(
+    accessToken: string,
+    appId: string,
+    appSecret: string,
+    graphApiVersion: string,
+  ): Promise<string[]> {
+    const pageScopes = new Set([
+      'pages_show_list',
+      'pages_manage_posts',
+      'pages_read_engagement',
+    ]);
+
+    const res = await fetch(
+      `https://graph.facebook.com/${graphApiVersion}/debug_token?input_token=${accessToken}&access_token=${appId}|${appSecret}`,
+    );
+    const body = (await res.json()) as {
+      data?: {
+        granular_scopes?: Array<{ scope: string; target_ids?: string[] }>;
+      };
+      error?: { message: string };
+    };
+
+    if (!res.ok || body.error || !body.data?.granular_scopes) {
+      return [];
+    }
+
+    const ids = new Set<string>();
+    for (const granted of body.data.granular_scopes) {
+      if (pageScopes.has(granted.scope)) {
+        (granted.target_ids || []).forEach((id) => ids.add(id));
+      }
+    }
+    return Array.from(ids);
+  }
+
+  private async fetchPagesByIds(
+    pageIds: string[],
+    accessToken: string,
+    graphApiVersion: string,
+  ): Promise<RawFacebookPage[]> {
+    const results = await Promise.all(
+      pageIds.map(async (id) => {
+        const res = await fetch(
+          `https://graph.facebook.com/${graphApiVersion}/${id}?fields=id,name,access_token,picture.type(large),instagram_business_account{id,username,name,profile_picture_url}&access_token=${accessToken}`,
+        );
+        const page = (await res.json()) as RawFacebookPage & {
+          error?: { message: string };
+        };
+        return res.ok && !page.error ? page : null;
+      }),
+    );
+    return results.filter((page): page is RawFacebookPage => page !== null);
+  }
+
   async validateFacebookAccount(
     dto: ValidateFacebookDto,
   ): Promise<FacebookValidateResponse> {
@@ -284,27 +355,38 @@ export class SocialAccountService {
     );
 
     const pages = (await pagesRes.json()) as {
-      data?: Array<
-        FacebookPageInfo & {
-          picture?: { data?: { url?: string } };
-          instagram_business_account?: {
-            id: string;
-            username?: string;
-            name?: string;
-            profile_picture_url?: string;
-          };
-        }
-      >;
+      data?: RawFacebookPage[];
       error?: { message: string };
     };
 
     if (pagesRes.ok && !pages.error && Array.isArray(pages.data)) {
       isUserToken = true;
 
+      let rawPages = pages.data;
+
+      // /me/accounts comes back empty when Facebook granted access via its
+      // granular asset picker instead of the classic "manage all my Pages"
+      // grant — fall back to fetching the specifically-authorized Pages by ID.
+      if (rawPages.length === 0 && metaConfig) {
+        const pageIds = await this.getGranularPageIds(
+          accessToken,
+          metaConfig.appId,
+          metaConfig.appSecret,
+          metaConfig.graphApiVersion,
+        );
+        if (pageIds.length > 0) {
+          rawPages = await this.fetchPagesByIds(
+            pageIds,
+            accessToken,
+            metaConfig.graphApiVersion,
+          );
+        }
+      }
+
       const facebookPages: FacebookPageInfo[] = [];
       const instagramAccounts: InstagramAccountInfo[] = [];
 
-      pages.data.forEach((page) => {
+      rawPages.forEach((page) => {
         facebookPages.push({
           id: page.id,
           name: page.name,
