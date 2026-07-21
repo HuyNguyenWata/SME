@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import {
   PaginationQueryDto,
   SocialPostQueryDto,
@@ -369,5 +373,132 @@ export class ContentService {
     });
 
     return calendar;
+  }
+
+  async syncSocialEngagement(postId: number) {
+    const post = await this.prisma.socialPost.findUnique({
+      where: { id: postId },
+      include: {
+        platform: true,
+        account: true,
+        generatedContent: true,
+      },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Social post not found');
+    }
+
+    if (!post.postId) {
+      throw new BadRequestException(
+        'Post has not been published to a platform yet (missing postId)',
+      );
+    }
+
+    let token = post.account?.accessToken;
+
+    // Nếu post không lưu account (ví dụ AI post dùng chung n8n), thử lấy token từ fanpage của user
+    if (!token && post.generatedContent?.userId) {
+      const userAccount = await this.prisma.socialAccount.findFirst({
+        where: {
+          userId: post.generatedContent.userId,
+          platformId: post.platformId,
+        },
+      });
+      if (userAccount) {
+        token = userAccount.accessToken;
+      }
+    }
+
+    if (!token) {
+      throw new BadRequestException(
+        'No social account or access token found for this user/post',
+      );
+    }
+
+    const platformName = post.platform.name.toLowerCase();
+    const externalPostId = post.postId;
+
+    let likesCount = 0;
+    let sharesCount = 0;
+    let commentsCount = 0;
+    let commentsData: any[] = [];
+
+    try {
+      if (platformName === 'facebook') {
+        const url = `https://graph.facebook.com/v23.0/${externalPostId}?fields=likes.summary(true),comments.summary(true),shares&access_token=${token}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+            data.error?.message || 'Failed to fetch Facebook engagement',
+          );
+        }
+
+        likesCount = data.likes?.summary?.total_count || 0;
+        commentsCount = data.comments?.summary?.total_count || 0;
+        sharesCount = data.shares?.count || 0;
+        commentsData = data.comments?.data || [];
+      } else if (platformName === 'instagram') {
+        const url = `https://graph.facebook.com/v23.0/${externalPostId}?fields=like_count,comments_count,comments&access_token=${token}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+            data.error?.message || 'Failed to fetch Instagram engagement',
+          );
+        }
+
+        likesCount = data.like_count || 0;
+        commentsCount = data.comments_count || 0;
+        sharesCount = 0; // IG doesn't return shares directly this way
+        commentsData = data.comments?.data || [];
+      } else {
+        throw new BadRequestException(
+          `Sync engagement not supported for platform: ${platformName}`,
+        );
+      }
+
+      // Upsert comments
+      for (const comment of commentsData) {
+        await this.prisma.socialComment.upsert({
+          where: { externalId: comment.id },
+          update: {
+            content: comment.message || comment.text || '',
+            author: comment.from?.name || comment.username || 'Unknown',
+          },
+          create: {
+            socialPostId: post.id,
+            externalId: comment.id,
+            content: comment.message || comment.text || '',
+            author: comment.from?.name || comment.username || 'Unknown',
+            createdAt:
+              comment.created_time || comment.timestamp
+                ? new Date(comment.created_time || comment.timestamp)
+                : new Date(),
+          },
+        });
+      }
+
+      // Update post metrics
+      const updatedPost = await this.prisma.socialPost.update({
+        where: { id: post.id },
+        data: {
+          likesCount,
+          sharesCount,
+          commentsCount,
+          lastSyncAt: new Date(),
+        },
+      });
+
+      return updatedPost;
+    } catch (error: any) {
+      console.error('SYNC ENGAGEMENT ERROR:', error);
+      throw new BadRequestException(
+        `Failed to sync engagement: ${error.message}`,
+      );
+    }
   }
 }
