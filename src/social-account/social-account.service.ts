@@ -179,7 +179,7 @@ export class SocialAccountService {
       ...(dto.accountId && { accountId: dto.accountId }),
     };
 
-    if (dto.accessToken) {
+    if (dto.accessToken && dto.accessToken !== oldAccount.accessToken) {
       const platformName = oldAccount.platform.name as 'facebook' | 'instagram';
 
       const result = await this.validateFacebookAccount({
