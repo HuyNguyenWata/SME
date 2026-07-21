@@ -10,6 +10,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/PrismaService/prisma.service';
+import { MetaAppConfigService } from '../common/services/meta-app-config.service';
 
 type CreateSocialAccountPayload = CreateSocialAccountDto & {
   userId: number;
@@ -44,9 +45,22 @@ export interface FacebookValidateResponse {
   instagramBusinessAccountId?: string;
 }
 
+type RawFacebookPage = FacebookPageInfo & {
+  picture?: { data?: { url?: string } };
+  instagram_business_account?: {
+    id: string;
+    username?: string;
+    name?: string;
+    profile_picture_url?: string;
+  };
+};
+
 @Injectable()
 export class SocialAccountService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly metaAppConfig: MetaAppConfigService,
+  ) {}
 
   async getNewsCategories() {
     const data = await this.prisma.newsCategory.findMany({
@@ -212,10 +226,104 @@ export class SocialAccountService {
     });
   }
 
+  private async exchangeForLongLivedToken(
+    accessToken: string,
+    appId: string,
+    appSecret: string,
+    graphApiVersion: string,
+  ): Promise<string> {
+    const res = await fetch(
+      `https://graph.facebook.com/${graphApiVersion}/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${accessToken}`,
+    );
+    const data = (await res.json()) as {
+      access_token?: string;
+      error?: { message: string };
+    };
+    if (!res.ok || data.error || !data.access_token) {
+      throw new BadRequestException(
+        data.error?.message || 'Failed to exchange Facebook access token',
+      );
+    }
+    return data.access_token;
+  }
+
+  /**
+   * When Facebook grants access via its "granular" asset picker (the
+   * "reconnect / choose Pages" dialog), `/me/accounts` returns an empty list
+   * even though specific Pages were authorized — the grant only shows up in
+   * `granular_scopes[].target_ids` from /debug_token. Extract those Page IDs
+   * so we can fetch each Page directly instead.
+   */
+  private async getGranularPageIds(
+    accessToken: string,
+    appId: string,
+    appSecret: string,
+    graphApiVersion: string,
+  ): Promise<string[]> {
+    const pageScopes = new Set([
+      'pages_show_list',
+      'pages_manage_posts',
+      'pages_read_engagement',
+    ]);
+
+    const res = await fetch(
+      `https://graph.facebook.com/${graphApiVersion}/debug_token?input_token=${accessToken}&access_token=${appId}|${appSecret}`,
+    );
+    const body = (await res.json()) as {
+      data?: {
+        granular_scopes?: Array<{ scope: string; target_ids?: string[] }>;
+      };
+      error?: { message: string };
+    };
+
+    if (!res.ok || body.error || !body.data?.granular_scopes) {
+      return [];
+    }
+
+    const ids = new Set<string>();
+    for (const granted of body.data.granular_scopes) {
+      if (pageScopes.has(granted.scope)) {
+        (granted.target_ids || []).forEach((id) => ids.add(id));
+      }
+    }
+    return Array.from(ids);
+  }
+
+  private async fetchPagesByIds(
+    pageIds: string[],
+    accessToken: string,
+    graphApiVersion: string,
+  ): Promise<RawFacebookPage[]> {
+    const results = await Promise.all(
+      pageIds.map(async (id) => {
+        const res = await fetch(
+          `https://graph.facebook.com/${graphApiVersion}/${id}?fields=id,name,access_token,picture.type(large),instagram_business_account{id,username,name,profile_picture_url}&access_token=${accessToken}`,
+        );
+        const page = (await res.json()) as RawFacebookPage & {
+          error?: { message: string };
+        };
+        return res.ok && !page.error ? page : null;
+      }),
+    );
+    return results.filter((page): page is RawFacebookPage => page !== null);
+  }
+
   async validateFacebookAccount(
     dto: ValidateFacebookDto,
   ): Promise<FacebookValidateResponse> {
-    const { accessToken } = dto;
+    let { accessToken } = dto;
+
+    // Exchange for a long-lived token first so the Page tokens derived from it
+    // never expire, using the single platform-wide Meta App.
+    const metaConfig = await this.metaAppConfig.getConfig();
+    if (metaConfig) {
+      accessToken = await this.exchangeForLongLivedToken(
+        accessToken,
+        metaConfig.appId,
+        metaConfig.appSecret,
+        metaConfig.graphApiVersion,
+      );
+    }
 
     // ============================
     // 1. Validate token
@@ -247,27 +355,38 @@ export class SocialAccountService {
     );
 
     const pages = (await pagesRes.json()) as {
-      data?: Array<
-        FacebookPageInfo & {
-          picture?: { data?: { url?: string } };
-          instagram_business_account?: {
-            id: string;
-            username?: string;
-            name?: string;
-            profile_picture_url?: string;
-          };
-        }
-      >;
+      data?: RawFacebookPage[];
       error?: { message: string };
     };
 
     if (pagesRes.ok && !pages.error && Array.isArray(pages.data)) {
       isUserToken = true;
 
+      let rawPages = pages.data;
+
+      // /me/accounts comes back empty when Facebook granted access via its
+      // granular asset picker instead of the classic "manage all my Pages"
+      // grant — fall back to fetching the specifically-authorized Pages by ID.
+      if (rawPages.length === 0 && metaConfig) {
+        const pageIds = await this.getGranularPageIds(
+          accessToken,
+          metaConfig.appId,
+          metaConfig.appSecret,
+          metaConfig.graphApiVersion,
+        );
+        if (pageIds.length > 0) {
+          rawPages = await this.fetchPagesByIds(
+            pageIds,
+            accessToken,
+            metaConfig.graphApiVersion,
+          );
+        }
+      }
+
       const facebookPages: FacebookPageInfo[] = [];
       const instagramAccounts: InstagramAccountInfo[] = [];
 
-      pages.data.forEach((page) => {
+      rawPages.forEach((page) => {
         facebookPages.push({
           id: page.id,
           name: page.name,

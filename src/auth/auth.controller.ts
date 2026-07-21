@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -27,6 +28,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { PlatformOwnerGuard } from '../common/guards/platform-owner.guard';
 import type { AuthUser } from '../common/types/auth-user.type';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -35,6 +37,8 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { CustomerRegisterDto } from './dto/customer-register.dto';
 import { CustomerLoginDto } from './dto/customer-login.dto';
+import { FacebookLoginDto } from './dto/facebook-login.dto';
+import { UpsertMetaAppConfigDto } from '../common/dto/upsert-meta-app-config.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -58,6 +62,40 @@ export class AuthController {
     const storeId =
       parsedStoreId && !isNaN(parsedStoreId) ? parsedStoreId : undefined;
     return this.auth.login(dto, storeId);
+  }
+
+  @Post('facebook')
+  @ApiOperation({ summary: 'Login or register a store owner via Facebook access token' })
+  @ApiBody({ type: FacebookLoginDto })
+  facebookLogin(@Body() dto: FacebookLoginDto) {
+    return this.auth.facebookLogin(dto);
+  }
+
+  @Get('facebook-login-config')
+  @ApiOperation({ summary: 'Get the global Facebook Login App ID (public, no secret)' })
+  getFacebookLoginConfig() {
+    return this.auth.getPublicFacebookLoginConfig();
+  }
+
+  @Put('facebook-login-config')
+  @UseGuards(JwtAuthGuard, PlatformOwnerGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Create or update the single platform-wide Meta App config (platform owner only)',
+  })
+  upsertFacebookLoginConfig(@Body() dto: UpsertMetaAppConfigDto) {
+    return this.auth.upsertFacebookLoginConfig(dto);
+  }
+
+  @Delete('facebook-login-config')
+  @UseGuards(JwtAuthGuard, PlatformOwnerGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Remove the platform-wide Meta App config (platform owner only)',
+  })
+  removeFacebookLoginConfig() {
+    return this.auth.removeFacebookLoginConfig();
   }
 
   @Post('customer/register')

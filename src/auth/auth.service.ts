@@ -13,8 +13,11 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { CustomerRegisterDto } from './dto/customer-register.dto';
 import { CustomerLoginDto } from './dto/customer-login.dto';
+import { FacebookLoginDto } from './dto/facebook-login.dto';
 
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { UpsertMetaAppConfigDto } from '../common/dto/upsert-meta-app-config.dto';
+import { MetaAppConfigService } from '../common/services/meta-app-config.service';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +26,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly cloudinary: CloudinaryService,
+    private readonly metaAppConfig: MetaAppConfigService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -72,8 +76,9 @@ export class AuthService {
       );
     }
 
-    const hash = await bcrypt.hash('123456', 10);
-    console.log(hash);
+    if (!user.password) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
@@ -85,6 +90,123 @@ export class AuthService {
     }
 
     return this.createTokenResponse(user);
+  }
+
+  getPublicFacebookLoginConfig() {
+    return this.metaAppConfig.getPublicConfig();
+  }
+
+  upsertFacebookLoginConfig(dto: UpsertMetaAppConfigDto) {
+    return this.metaAppConfig.upsertConfig(dto);
+  }
+
+  removeFacebookLoginConfig() {
+    return this.metaAppConfig.removeConfig();
+  }
+
+  async facebookLogin(dto: FacebookLoginDto) {
+    const fbConfig = await this.metaAppConfig.getConfig();
+    if (!fbConfig) {
+      throw new BadRequestException('Facebook login is not configured yet');
+    }
+    const { appId, appSecret, graphApiVersion } = fbConfig;
+
+    const debugRes = await fetch(
+      `https://graph.facebook.com/debug_token?input_token=${dto.accessToken}&access_token=${appId}|${appSecret}`,
+    );
+    const debug = (await debugRes.json()) as {
+      data?: { is_valid?: boolean; app_id?: string };
+      error?: { message: string };
+    };
+    if (!debugRes.ok || debug.error || !debug.data?.is_valid || debug.data.app_id !== appId) {
+      throw new BadRequestException('Invalid Facebook access token');
+    }
+
+    const meRes = await fetch(
+      `https://graph.facebook.com/${graphApiVersion}/me?fields=id,name,email,picture.type(large)&access_token=${dto.accessToken}`,
+    );
+    const me = (await meRes.json()) as {
+      id: string;
+      name: string;
+      email?: string;
+      picture?: { data?: { url?: string } };
+      error?: { message: string };
+    };
+
+    if (!meRes.ok || me.error) {
+      throw new BadRequestException(
+        me.error?.message || 'Invalid Facebook access token',
+      );
+    }
+
+    if (!me.email) {
+      throw new BadRequestException(
+        'Facebook account has no verified email. Please grant email permission or register manually.',
+      );
+    }
+
+    const avatarUrl = me.picture?.data?.url;
+    const email = me.email.toLowerCase();
+
+    let user = await this.prisma.user.findUnique({
+      where: { facebookId: me.id },
+    });
+
+    if (!user) {
+      // Link to an existing local account with the same (Facebook-verified) email.
+      const existing = await this.prisma.user.findUnique({ where: { email } });
+      if (existing) {
+        user = await this.prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            facebookId: me.id,
+            avatarUrl: existing.avatarUrl ?? avatarUrl,
+          },
+        });
+      }
+    }
+
+    if (!user) {
+      const slug = await this.generateUniqueSlug(me.name, me.id);
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          name: me.name,
+          slug,
+          role: 'ADMIN',
+          provider: 'FACEBOOK',
+          facebookId: me.id,
+          avatarUrl,
+          isActive: true,
+        },
+      });
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is disabled');
+    }
+
+    return this.createTokenResponse(user);
+  }
+
+  private async generateUniqueSlug(name: string, facebookId: string) {
+    const base =
+      name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40) || `fb-${facebookId}`;
+
+    let slug = base;
+    let suffix = 2;
+    while (await this.prisma.user.findUnique({ where: { slug } })) {
+      slug = `${base}-${suffix}`;
+      suffix += 1;
+    }
+    return slug;
   }
 
   async checkStore(slug: string) {
@@ -298,6 +420,7 @@ export class AuthService {
     name: string;
     role: string;
     isActive: boolean;
+    avatarUrl?: string | null;
   }) {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const [accessToken, refreshToken] = await Promise.all([
@@ -332,6 +455,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         isActive: user.isActive,
+        avatarUrl: user.avatarUrl ?? undefined,
       },
     };
   }
