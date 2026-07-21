@@ -57,6 +57,32 @@ export class AiConfigService {
   }
 
   async createNewsApiConfig(userId: number, dto: CreateNewsApiConfigDto) {
+    const settings = await this.prisma.setting.findMany({
+      where: {
+        key: {
+          in: [
+            'NEWS_API_KEY',
+            'NEWS_RUN_INTERVAL',
+            'NEWS_POST_COUNT',
+            'NEWS_IMAGE_COUNT',
+          ],
+        },
+      },
+    });
+
+    const getSettingValue = (key: string, defaultValue: string) => {
+      const s = settings.find((s) => s.key === key);
+      return s ? s.value : defaultValue;
+    };
+
+    const apiKey = getSettingValue('NEWS_API_KEY', '');
+    const loopHour =
+      parseInt(getSettingValue('NEWS_RUN_INTERVAL', '2'), 10) || 2;
+    const targetPostCount =
+      parseInt(getSettingValue('NEWS_POST_COUNT', '1'), 10) || 1;
+    const imageRequirement =
+      parseInt(getSettingValue('NEWS_IMAGE_COUNT', '1'), 10) || 1;
+
     return this.prisma.$transaction(async (tx) => {
       await tx.newsAPIConfig.updateMany({
         where: {
@@ -71,6 +97,10 @@ export class AiConfigService {
         data: {
           userId,
           ...dto,
+          apiKey,
+          loopHour,
+          targetPostCount,
+          imageRequirement,
           isActive: true,
         },
         include: {
@@ -101,6 +131,32 @@ export class AiConfigService {
       await this.checkAIPostQuota(userId);
     }
 
+    const settings = await this.prisma.setting.findMany({
+      where: {
+        key: {
+          in: [
+            'NEWS_API_KEY',
+            'NEWS_RUN_INTERVAL',
+            'NEWS_POST_COUNT',
+            'NEWS_IMAGE_COUNT',
+          ],
+        },
+      },
+    });
+
+    const getSettingValue = (key: string, defaultValue: string) => {
+      const s = settings.find((s) => s.key === key);
+      return s ? s.value : defaultValue;
+    };
+
+    const apiKey = getSettingValue('NEWS_API_KEY', '');
+    const loopHour =
+      parseInt(getSettingValue('NEWS_RUN_INTERVAL', '2'), 10) || 2;
+    const targetPostCount =
+      parseInt(getSettingValue('NEWS_POST_COUNT', '1'), 10) || 1;
+    const imageRequirement =
+      parseInt(getSettingValue('NEWS_IMAGE_COUNT', '1'), 10) || 1;
+
     return this.prisma.$transaction(async (tx) => {
       if (dto.isActive) {
         await tx.newsAPIConfig.updateMany({
@@ -118,7 +174,13 @@ export class AiConfigService {
 
       return tx.newsAPIConfig.update({
         where: { id },
-        data: dto,
+        data: {
+          ...dto,
+          apiKey,
+          loopHour,
+          targetPostCount,
+          imageRequirement,
+        },
         include: {
           category: true,
         },
