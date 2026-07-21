@@ -56,3 +56,20 @@ export class InstantSubmitDto {
   @IsInt({ each: true })
   platformIds?: number[];
 }
+
+export class WebhookPostSuccessDto {
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  userId!: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => String)
+  message?: string;
+}

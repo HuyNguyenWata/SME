@@ -12,6 +12,7 @@ import {
   ContentDto,
   PublishDto,
   InstantSubmitRequestDto,
+  WebhookPostSuccessDto,
 } from './dto/n8n.request.dto';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -49,5 +50,10 @@ export class N8NController {
       configId: body.configId,
       platformIds,
     });
+  }
+
+  @Post('webhook/post-success')
+  async postSuccessWebhook(@Body() body: WebhookPostSuccessDto) {
+    return this.n8NService.handlePostSuccessWebhook(body);
   }
 }
