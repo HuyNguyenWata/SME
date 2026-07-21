@@ -165,4 +165,105 @@ export class InventoryService {
     if (ageDays > 60) return 'Bundle with fast-moving products';
     return 'Normal promotion';
   }
+
+  async getSystemAnalytics(userId: number, days: number = 30) {
+    const start = new Date();
+    start.setDate(start.getDate() - days + 1);
+    start.setHours(0, 0, 0, 0);
+
+    const histories = await this.prisma.inventoryHistory.findMany({
+      where: {
+        createdAt: { gte: start },
+        product: { userId },
+      },
+      include: {
+        product: { select: { id: true, name: true, price: true } },
+      },
+    });
+
+    const map = new Map<string, { in: number; out: number; revenue: number }>();
+    const productMap = new Map<
+      number,
+      { name: string; in: number; out: number; revenue: number }
+    >();
+
+    const formatDate = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      map.set(formatDate(d), { in: 0, out: 0, revenue: 0 });
+    }
+
+    let totalIn = 0;
+    let totalOut = 0;
+    let totalRevenue = 0;
+
+    for (const history of histories) {
+      const key = formatDate(history.createdAt);
+
+      if (!productMap.has(history.productId)) {
+        productMap.set(history.productId, {
+          name: history.product.name,
+          in: 0,
+          out: 0,
+          revenue: 0,
+        });
+      }
+      const productEntry = productMap.get(history.productId)!;
+
+      if (map.has(key)) {
+        const entry = map.get(key)!;
+        if (history.type === 'IN') {
+          entry.in += history.changeQuantity;
+          totalIn += history.changeQuantity;
+          productEntry.in += history.changeQuantity;
+        }
+        if (history.type === 'OUT') {
+          const rev = history.changeQuantity * Number(history.product.price);
+          entry.out += history.changeQuantity;
+          entry.revenue += rev;
+          totalOut += history.changeQuantity;
+          totalRevenue += rev;
+
+          productEntry.out += history.changeQuantity;
+          productEntry.revenue += rev;
+        }
+      }
+    }
+
+    const flow: { date: string; in: number; out: number; revenue: number }[] =
+      [];
+    const sortedEntries = [...map.entries()].sort((a, b) =>
+      a[0] > b[0] ? 1 : -1,
+    );
+    for (const [date, data] of sortedEntries) {
+      flow.push({ date, in: data.in, out: data.out, revenue: data.revenue });
+    }
+
+    const products = [...productMap.entries()]
+      .map(([id, data]) => ({
+        id,
+        name: data.name,
+        in: data.in,
+        out: data.out,
+        revenue: data.revenue,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    return {
+      flow,
+      products,
+      stats: {
+        totalIn,
+        totalOut,
+        totalRevenue,
+      },
+    };
+  }
 }

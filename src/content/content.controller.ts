@@ -8,6 +8,7 @@ import {
   Req,
   UseGuards,
   UnauthorizedException,
+  Param,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -104,6 +105,22 @@ export class ContentController {
   @ApiBearerAuth()
   createSocialPost(@Body() dto: CreateSocialPostDto) {
     return this.content.createSocialPost(dto);
+  }
+
+  @Post('social-posts/:id/sync-engagement')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  syncSocialEngagement(@Param('id', ParseIntPipe) id: number) {
+    return this.content.syncSocialEngagement(id);
+  }
+
+  @Post('social-posts/sync-engagement-bulk')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  syncSocialEngagementBulk(@Body('postIds') postIds: number[]) {
+    return this.content.syncSocialEngagementBulk(postIds);
   }
 
   @Post('generated-content')

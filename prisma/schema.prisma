@@ -281,10 +281,10 @@ model SocialPost {
 model SocialComment {
   id           Int        @id @default(autoincrement())
   socialPostId Int        @map("social_post_id")
+  externalId   String?    @unique @map("external_id")
   author       String
   content      String
   createdAt    DateTime   @default(now()) @map("created_at")
-  externalId   String?    @unique @map("external_id")
   socialPost   SocialPost @relation(fields: [socialPostId], references: [id])
 
   @@map("SocialComment")
