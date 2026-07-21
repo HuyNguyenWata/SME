@@ -12,7 +12,9 @@ import {
   PublishDto,
   ContentDto,
   InstantSubmitDto,
+  WebhookPostSuccessDto,
 } from './dto/n8n.request.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type ApiResponse<T = unknown> = {
   statusCode: number;
@@ -33,6 +35,7 @@ export class N8NService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
+    private readonly notificationsService: NotificationsService,
   ) {
     this.webhookUrl = this.configService.getOrThrow<string>(
       'N8N_WEBHOOK_CREATE_CONTENT_URL',
@@ -235,5 +238,19 @@ export class N8NService {
       console.error('createContent error:', error);
       throw error;
     }
+  }
+
+  handlePostSuccessWebhook(dto: WebhookPostSuccessDto) {
+    this.logger.log(
+      `Received webhook from n8n for user ${dto.userId} with status ${dto.status}`,
+    );
+    this.notificationsService.sendToUser(dto.userId, {
+      type: 'AI_POST_RESULT',
+      data: {
+        status: dto.status || 'success',
+      },
+    });
+
+    return { success: true };
   }
 }
