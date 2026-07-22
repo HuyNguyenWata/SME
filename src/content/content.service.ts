@@ -509,6 +509,127 @@ export class ContentService {
     }
   }
 
+  private async resolveAccessToken(post: {
+    platformId: number;
+    account: { accessToken: string } | null;
+    generatedContent: { userId: number | null } | null;
+  }): Promise<string> {
+    let token = post.account?.accessToken;
+
+    // Nếu post không lưu account (ví dụ AI post dùng chung n8n), thử lấy token từ fanpage của user
+    if (!token && post.generatedContent?.userId) {
+      const userAccount = await this.prisma.socialAccount.findFirst({
+        where: {
+          userId: post.generatedContent.userId,
+          platformId: post.platformId,
+        },
+      });
+      if (userAccount) {
+        token = userAccount.accessToken;
+      }
+    }
+
+    if (!token) {
+      throw new BadRequestException(
+        'No social account or access token found for this user/post',
+      );
+    }
+
+    return token;
+  }
+
+  async getPostComments(postId: number) {
+    const post = await this.prisma.socialPost.findUnique({
+      where: { id: postId },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Social post not found');
+    }
+
+    return this.prisma.socialComment.findMany({
+      where: { socialPostId: postId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async setCommentHidden(commentId: number, hidden: boolean) {
+    const comment = await this.prisma.socialComment.findUnique({
+      where: { id: commentId },
+      include: {
+        socialPost: {
+          include: { platform: true, account: true, generatedContent: true },
+        },
+      },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    if (!comment.externalId) {
+      throw new BadRequestException(
+        'This comment has no external ID and cannot be moderated on Facebook/Instagram',
+      );
+    }
+
+    const token = await this.resolveAccessToken(comment.socialPost);
+    const platformName = comment.socialPost.platform.name.toLowerCase();
+    // Facebook uses `is_hidden`, Instagram uses `hide` for the same action.
+    const field = platformName === 'instagram' ? 'hide' : 'is_hidden';
+
+    const res = await fetch(
+      `https://graph.facebook.com/v23.0/${comment.externalId}?${field}=${hidden}&access_token=${token}`,
+      { method: 'POST' },
+    );
+    const data = (await res.json()) as { error?: { message: string } };
+
+    if (!res.ok || data.error) {
+      throw new BadRequestException(
+        data.error?.message ||
+          `Failed to ${hidden ? 'hide' : 'unhide'} comment`,
+      );
+    }
+
+    return this.prisma.socialComment.update({
+      where: { id: commentId },
+      data: { isHidden: hidden, hiddenAt: hidden ? new Date() : null },
+    });
+  }
+
+  async deleteComment(commentId: number) {
+    const comment = await this.prisma.socialComment.findUnique({
+      where: { id: commentId },
+      include: {
+        socialPost: {
+          include: { platform: true, account: true, generatedContent: true },
+        },
+      },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    if (comment.externalId) {
+      const token = await this.resolveAccessToken(comment.socialPost);
+      const res = await fetch(
+        `https://graph.facebook.com/v23.0/${comment.externalId}?access_token=${token}`,
+        { method: 'DELETE' },
+      );
+      const data = (await res.json()) as { error?: { message: string } };
+
+      if (!res.ok || data.error) {
+        throw new BadRequestException(
+          data.error?.message || 'Failed to delete comment',
+        );
+      }
+    }
+
+    await this.prisma.socialComment.delete({ where: { id: commentId } });
+    return { status: 'ok' };
+  }
+
   async syncSocialEngagementBulk(postIds: number[]) {
     const results = await Promise.all(
       postIds.map(async (id) => {

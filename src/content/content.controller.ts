@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -25,6 +27,7 @@ import {
   CreateGeneratedContentDto,
   CreateSocialCalendarDto,
 } from './dto/create-generated-content.dto';
+import { SetCommentHiddenDto } from './dto/set-comment-hidden.dto';
 import { OptionalJwtAuthGuard } from 'src/common/guards/optional-jwt-auth.guard';
 
 @ApiTags('Content')
@@ -121,6 +124,33 @@ export class ContentController {
   @ApiBearerAuth()
   syncSocialEngagementBulk(@Body('postIds') postIds: number[]) {
     return this.content.syncSocialEngagementBulk(postIds);
+  }
+
+  @Get('social-posts/:id/comments')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  getPostComments(@Param('id', ParseIntPipe) id: number) {
+    return this.content.getPostComments(id);
+  }
+
+  @Patch('social-comments/:id/hidden')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  setCommentHidden(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SetCommentHiddenDto,
+  ) {
+    return this.content.setCommentHidden(id, dto.hidden);
+  }
+
+  @Delete('social-comments/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  deleteComment(@Param('id', ParseIntPipe) id: number) {
+    return this.content.deleteComment(id);
   }
 
   @Post('generated-content')
