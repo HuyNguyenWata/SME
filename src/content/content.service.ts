@@ -441,7 +441,14 @@ export class ContentService {
         sharesCount = data.shares?.count || 0;
         commentsData = data.comments?.data || [];
       } else if (platformName === 'instagram') {
-        const url = `https://graph.facebook.com/v23.0/${externalPostId}?fields=like_count,comments_count,comments&access_token=${token}`;
+        // `postId` stores the permalink shortcode (e.g. "DbE_M34D9-d"), which is
+        // NOT a valid Graph API object ID. The real numeric media ID is captured
+        // in rawResponse.external_id when the post is published; fall back to
+        // postId only for legacy rows that predate this field being recorded.
+        const rawResponse = post.rawResponse as { external_id?: string } | null;
+        const igMediaId = rawResponse?.external_id || externalPostId;
+
+        const url = `https://graph.facebook.com/v23.0/${igMediaId}?fields=like_count,comments_count,comments{id,text,username,timestamp}&access_token=${token}`;
         const res = await fetch(url);
         const data = await res.json();
 
