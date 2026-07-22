@@ -26,6 +26,18 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+
+export class ValidateNewsDto {
+  @IsString()
+  @IsNotEmpty()
+  keyword: string;
+
+  @IsOptional()
+  @IsString()
+  category: string;
+}
+
 @Controller('ai-config')
 export class AiConfigController {
   constructor(private readonly service: AiConfigService) {}
@@ -38,6 +50,14 @@ export class AiConfigController {
     @Req() req: AuthRequest,
   ) {
     return this.service.createNewsApiConfig(req.user.id, dto);
+  }
+
+  @Post('validate-news')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  validateNews(@Body() dto: ValidateNewsDto) {
+    return this.service.validateNews(dto.keyword, dto.category);
   }
 
   @Patch('news-api-configs/:id')

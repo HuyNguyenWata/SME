@@ -9,6 +9,7 @@ import {
 import { CreateNewsApiConfigDto } from './dto/create-news-api-config.dto';
 import { UpdateNewsApiConfigDto } from './dto/update-news-api-config.dto';
 import { PrismaService } from 'src/prisma/PrismaService/prisma.service';
+import axios from 'axios';
 @Injectable()
 export class AiConfigService {
   private readonly logger = new Logger(AiConfigService.name);
@@ -52,6 +53,52 @@ export class AiConfigService {
       throw new HttpException(
         'Bạn đã vượt quá số lượng bài đăng AI trong tháng này.',
         HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  async validateNews(keyword: string, category: string) {
+    const settings = await this.prisma.setting.findMany({
+      where: { key: 'NEWS_API_KEY' },
+    });
+    const apiKeySetting = settings.find((s) => s.key === 'NEWS_API_KEY');
+    const apiKey = apiKeySetting ? apiKeySetting.value : '';
+
+    if (!apiKey) {
+      throw new BadRequestException('NEWS_API_KEY is not configured');
+    }
+
+    try {
+      let url = `https://newsdata.io/api/1/news?apikey=${apiKey}`;
+      if (keyword) {
+        url += `&q=${encodeURIComponent(keyword)}`;
+      }
+      if (category && category.toLowerCase() !== 'other') {
+        url += `&category=${encodeURIComponent(category.toLowerCase())}`;
+      }
+
+      const response = await axios.get<{ totalResults?: number }>(url);
+      if (response.data && response.data.totalResults !== undefined) {
+        return {
+          isValid: response.data.totalResults > 0,
+          totalResults: response.data.totalResults,
+        };
+      }
+      return { isValid: false, totalResults: 0 };
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        this.logger.error(
+          'Failed to validate newsdata.io:',
+          error.response?.data || error.message,
+        );
+      } else {
+        this.logger.error(
+          'Failed to validate newsdata.io:',
+          (error as Error).message,
+        );
+      }
+      throw new BadRequestException(
+        'Failed to validate news source with given parameters. Please check if your keyword and category are valid.',
       );
     }
   }
