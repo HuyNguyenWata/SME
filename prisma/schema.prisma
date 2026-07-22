@@ -284,6 +284,8 @@ model SocialComment {
   externalId   String?    @unique @map("external_id")
   author       String
   content      String
+  isHidden     Boolean    @default(false) @map("is_hidden")
+  hiddenAt     DateTime?  @map("hidden_at")
   createdAt    DateTime   @default(now()) @map("created_at")
   socialPost   SocialPost @relation(fields: [socialPostId], references: [id])
 
