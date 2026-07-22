@@ -396,6 +396,7 @@ export class ContentService {
     }
 
     let token = post.account?.accessToken;
+    let resolvedAccount = post.account;
 
     // Nếu post không lưu account (ví dụ AI post dùng chung n8n), thử lấy token từ fanpage của user
     if (!token && post.generatedContent?.userId) {
@@ -407,6 +408,7 @@ export class ContentService {
       });
       if (userAccount) {
         token = userAccount.accessToken;
+        resolvedAccount = userAccount;
       }
     }
 
@@ -443,10 +445,36 @@ export class ContentService {
       } else if (platformName === 'instagram') {
         // `postId` stores the permalink shortcode (e.g. "DbE_M34D9-d"), which is
         // NOT a valid Graph API object ID. The real numeric media ID is captured
-        // in rawResponse.external_id when the post is published; fall back to
-        // postId only for legacy rows that predate this field being recorded.
+        // in rawResponse.external_id when the post is published (AI Posts flow).
+        // Product posts don't get this populated at publish time, so self-heal by
+        // looking the media ID up from the IG account's recent media and caching
+        // the result back into rawResponse for future syncs.
         const rawResponse = post.rawResponse as { external_id?: string } | null;
-        const igMediaId = rawResponse?.external_id || externalPostId;
+        let igMediaId = rawResponse?.external_id;
+
+        if (!igMediaId && resolvedAccount?.instagramId) {
+          igMediaId =
+            (await this.resolveInstagramMediaId(
+              resolvedAccount.instagramId,
+              externalPostId,
+              token,
+            )) ?? undefined;
+
+          if (igMediaId) {
+            await this.prisma.socialPost.update({
+              where: { id: post.id },
+              data: {
+                rawResponse: { ...(rawResponse ?? {}), external_id: igMediaId },
+              },
+            });
+          }
+        }
+
+        if (!igMediaId) {
+          throw new Error(
+            `Could not resolve Instagram media ID for shortcode "${externalPostId}". The post may be too old to appear in recent media.`,
+          );
+        }
 
         const url = `https://graph.facebook.com/v23.0/${igMediaId}?fields=like_count,comments_count,comments{id,text,username,timestamp}&access_token=${token}`;
         const res = await fetch(url);
@@ -507,6 +535,55 @@ export class ContentService {
         `Failed to sync engagement: ${error.message}`,
       );
     }
+  }
+
+  // Product posts don't get the real IG media ID recorded at publish time (only
+  // the permalink shortcode). Resolve it by scanning the account's recent media
+  // for a matching permalink. Bounded to ~200 most recent items.
+  private async resolveInstagramMediaId(
+    igUserId: string,
+    shortcode: string,
+    token: string,
+  ): Promise<string | null> {
+    let after: string | undefined;
+
+    for (let page = 0; page < 4; page++) {
+      const params = new URLSearchParams({
+        fields: 'id,permalink',
+        limit: '50',
+        access_token: token,
+      });
+      if (after) {
+        params.set('after', after);
+      }
+
+      const res = await fetch(
+        `https://graph.facebook.com/v23.0/${igUserId}/media?${params.toString()}`,
+      );
+      const data = (await res.json()) as {
+        data?: { id: string; permalink?: string }[];
+        paging?: { cursors?: { after?: string } };
+        error?: { message: string };
+      };
+
+      if (!res.ok || data.error) {
+        return null;
+      }
+
+      const match = (data.data ?? []).find((item) =>
+        item.permalink?.includes(`/${shortcode}/`),
+      );
+      if (match) {
+        return match.id;
+      }
+
+      after = data.paging?.cursors?.after;
+      if (!after) {
+        break;
+      }
+    }
+
+    return null;
   }
 
   private async resolveAccessToken(post: {
