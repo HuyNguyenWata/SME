@@ -267,6 +267,12 @@ export class SocialAccountService {
       'pages_manage_engagement',
       'pages_read_user_content',
       'read_insights',
+      'public_profile',
+      'instagram_basic',
+      'instagram_content_publish',
+      'instagram_manage_comments',
+      'instagram_manage_insights',
+      'business_management',
     ]);
 
     const res = await fetch(
