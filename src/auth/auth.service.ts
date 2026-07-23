@@ -375,9 +375,7 @@ export class AuthService {
         role: string;
         type: string;
       }>(refreshToken, {
-        secret:
-          this.config.get<string>('JWT_REFRESH_SECRET') ??
-          'dev-refresh-secret-change-me',
+        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
       if (payload.type !== 'refresh') {
         throw new UnauthorizedException('Invalid refresh token');
@@ -430,7 +428,7 @@ export class AuthService {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(payload, {
-        secret: this.config.get<string>('JWT_SECRET') ?? 'dev-secret-change-me',
+        secret: this.config.getOrThrow<string>('JWT_SECRET'),
         expiresIn: parseInt(
           this.config.get<string>('JWT_EXPIRES_IN') ?? '900',
           10,
@@ -439,9 +437,7 @@ export class AuthService {
       this.jwt.signAsync(
         { ...payload, type: 'refresh' },
         {
-          secret:
-            this.config.get<string>('JWT_REFRESH_SECRET') ??
-            'dev-refresh-secret-change-me',
+          secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
           expiresIn: parseInt(
             this.config.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '604800',
             10,
@@ -480,7 +476,7 @@ export class AuthService {
     };
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(payload, {
-        secret: this.config.get<string>('JWT_SECRET') ?? 'dev-secret-change-me',
+        secret: this.config.getOrThrow<string>('JWT_SECRET'),
         expiresIn: parseInt(
           this.config.get<string>('JWT_EXPIRES_IN') ?? '900',
           10,
@@ -489,9 +485,7 @@ export class AuthService {
       this.jwt.signAsync(
         { ...payload, type: 'refresh' },
         {
-          secret:
-            this.config.get<string>('JWT_REFRESH_SECRET') ??
-            'dev-refresh-secret-change-me',
+          secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
           expiresIn: parseInt(
             this.config.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '604800',
             10,
