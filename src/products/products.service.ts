@@ -380,7 +380,10 @@ export class ProductsService {
       if (newExpiry !== oldExpiry) changedFields.push('expiryDate');
     }
 
-    const needsAiSync = changedFields.length > 0;
+    const aiSyncFields = ['name', 'description', 'specifications'];
+    const needsAiSync = changedFields.some((field) =>
+      aiSyncFields.includes(field),
+    );
 
     const internalDto = {
       ...dto,
