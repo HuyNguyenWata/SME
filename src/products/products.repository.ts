@@ -311,20 +311,22 @@ export class ProductsRepository {
             });
           }
 
-          // Ensure at least one thumbnail if images exist
+          // Ensure at least one thumbnail if images exist and reindex sortOrder
           const remainingImages = await tx.productImage.findMany({
             where: { productId: id },
             orderBy: { sortOrder: 'asc' },
           });
 
-          if (
-            remainingImages.length > 0 &&
-            !remainingImages.some((img) => img.isThumbnail)
-          ) {
-            await tx.productImage.update({
-              where: { id: remainingImages[0].id },
-              data: { isThumbnail: true },
-            });
+          if (remainingImages.length > 0) {
+            for (let i = 0; i < remainingImages.length; i++) {
+              await tx.productImage.update({
+                where: { id: remainingImages[i].id },
+                data: {
+                  sortOrder: i,
+                  isThumbnail: i === 0,
+                },
+              });
+            }
           }
         } else if (images.length > 0) {
           await tx.productImage.deleteMany({
@@ -332,11 +334,11 @@ export class ProductsRepository {
           });
 
           await tx.productImage.createMany({
-            data: images.map((image) => ({
+            data: images.map((image, index) => ({
               productId: id,
               url: image.url,
-              isThumbnail: image.isThumbnail,
-              sortOrder: image.sortOrder,
+              isThumbnail: index === 0,
+              sortOrder: index,
             })),
           });
         }
