@@ -28,8 +28,7 @@ export class NotificationsController {
 
     try {
       // Verify token
-      const secret =
-        this.configService.get<string>('JWT_SECRET') ?? 'dev-secret-change-me';
+      const secret = this.configService.getOrThrow<string>('JWT_SECRET');
       const payload = this.jwtService.verify<{ sub: number }>(token, {
         secret,
       });

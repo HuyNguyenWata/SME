@@ -22,10 +22,11 @@ import { SocialAccountModule } from './social-account/social-account.module';
 import { RedisModule } from './redis/redis.module';
 import { MetaAppConfigModule } from './common/services/meta-app-config.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { validate } from './config/env.validation';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     TerminusModule,
     PrismaModule,
