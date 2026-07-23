@@ -77,14 +77,24 @@ export class AiConfigService {
         url += `&category=${encodeURIComponent(category.toLowerCase())}`;
       }
 
-      const response = await axios.get<{ totalResults?: number }>(url);
+      const response = await axios.get<{
+        totalResults?: number;
+        results?: { title?: string; link?: string; description?: string }[];
+      }>(url);
       if (response.data && response.data.totalResults !== undefined) {
         return {
           isValid: response.data.totalResults > 0,
           totalResults: response.data.totalResults,
+          articles: (response.data.results || [])
+            .slice(0, 5)
+            .map((article) => ({
+              title: article.title || 'No title',
+              link: article.link || '#',
+              description: article.description || '',
+            })),
         };
       }
-      return { isValid: false, totalResults: 0 };
+      return { isValid: false, totalResults: 0, articles: [] };
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         this.logger.error(

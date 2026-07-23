@@ -118,7 +118,12 @@ export class AuthService {
       data?: { is_valid?: boolean; app_id?: string };
       error?: { message: string };
     };
-    if (!debugRes.ok || debug.error || !debug.data?.is_valid || debug.data.app_id !== appId) {
+    if (
+      !debugRes.ok ||
+      debug.error ||
+      !debug.data?.is_valid ||
+      debug.data.app_id !== appId
+    ) {
       throw new BadRequestException('Invalid Facebook access token');
     }
 
