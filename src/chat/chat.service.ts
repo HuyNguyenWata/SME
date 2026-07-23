@@ -292,6 +292,7 @@ export class ChatService {
       const aiResponse = await this.aiCore.chatInternal({
         conversation_id: String(conversationId),
         user_id: String(dto.customerId || dto.guestId || dto.storeId),
+        store_id: dto.storeId ? String(dto.storeId) : undefined,
         recent_messages: recentMessages,
         current_message: currentMessage,
         extra_state: extraState,
@@ -447,6 +448,7 @@ export class ChatService {
       const stream = this.aiCore.chatStreamInternal({
         conversation_id: String(conversationId),
         user_id: String(dto.customerId || dto.guestId || dto.storeId),
+        store_id: dto.storeId ? String(dto.storeId) : undefined,
         recent_messages: recentMessages,
         current_message: currentMessage,
         extra_state: extraState,

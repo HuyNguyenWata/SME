@@ -45,6 +45,8 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { CreateProductFromAiDto } from './dto/create-product-from-ai.dto';
 import { ProductAlertQueryDto } from './dto/product-alert-query.dto';
 import { OptionalJwtAuthGuard } from 'src/common/guards/optional-jwt-auth.guard';
+import { SearchByPriceDto } from './dto/search-by-price.dto';
+import { GetProductsByIdsDto } from './dto/get-products-by-ids.dto';
 
 class DeleteProductsDto {
   @ApiProperty({ type: [Number] })
@@ -203,10 +205,25 @@ export class ProductsController {
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get product by id' })
   @ApiParam({ name: 'id', type: Number })
-  findOne(@Param('id') id: string) {
-    return this.products.findOne(parseId(id));
+  findOne(
+    @Param('id') id: string,
+    @Req() req: import('express').Request,
+    @User() currentUser?: AuthUser,
+  ) {
+    const storeIdHeader = req.headers['x-store-id'];
+    let targetStoreId: number | undefined;
+
+    if (currentUser) {
+      targetStoreId =
+        currentUser.role === 'CUSTOMER' ? currentUser.storeId : currentUser.id;
+    } else if (storeIdHeader) {
+      targetStoreId = parseInt(storeIdHeader as string, 10);
+    }
+
+    return this.products.findOne(parseId(id), targetStoreId);
   }
 
   @Get(':id/analytics')
@@ -219,10 +236,23 @@ export class ProductsController {
 
   @Post('bulk-get')
   @ApiOperation({ summary: 'Get products by multiple IDs (for AI Core)' })
-  findByIds(
-    @Body() dto: import('./dto/get-products-by-ids.dto').GetProductsByIdsDto,
-  ) {
-    return this.products.findByIds(dto.ids);
+  findByIds(@Body() dto: GetProductsByIdsDto) {
+    return this.products.findByIds(dto.ids, dto.storeId);
+  }
+
+  @Post('search-by-price')
+  @ApiOperation({
+    summary: 'Search products by price range (for AI Core)',
+  })
+  searchByPrice(@Body() dto: SearchByPriceDto) {
+    return this.products.searchByPrice({
+      storeId: dto.storeId,
+      minPrice: dto.minPrice,
+      maxPrice: dto.maxPrice,
+      keyword: dto.keyword,
+      sortByPrice: dto.sortByPrice,
+      limit: dto.limit,
+    });
   }
 
   @Post()
@@ -384,10 +414,11 @@ export class ProductsController {
   @ApiOperation({ summary: 'Update product' })
   update(
     @Param('id') id: string,
+    @User('id') userId: number,
     @UploadedFiles() images: Express.Multer.File[],
     @Body() dto: UpdateProductDto,
   ) {
-    return this.products.update(parseId(id), dto, images);
+    return this.products.update(parseId(id), userId, dto, images);
   }
 
   @Delete()
@@ -396,8 +427,8 @@ export class ProductsController {
   @ApiBearerAuth()
   @ApiBody({ type: DeleteProductsDto })
   @ApiOperation({ summary: 'Delete products' })
-  removeMany(@Body() dto: DeleteProductsDto) {
-    return this.products.removeMany(dto.ids);
+  removeMany(@Body() dto: DeleteProductsDto, @User('id') userId: number) {
+    return this.products.removeMany(dto.ids, userId);
   }
 
   @Post(':id/sync')
@@ -405,8 +436,8 @@ export class ProductsController {
   @Roles('ADMIN', 'USER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Manually trigger AI Core sync for a product' })
-  syncProduct(@Param('id') id: string) {
-    return this.products.syncProduct(parseId(id));
+  syncProduct(@Param('id') id: string, @User('id') userId: number) {
+    return this.products.syncProduct(parseId(id), userId);
   }
 
   @Post('webhook/ai-sync')

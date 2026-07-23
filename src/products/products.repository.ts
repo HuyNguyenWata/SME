@@ -87,10 +87,14 @@ export class ProductsRepository {
     }
   }
 
-  async findByIds(ids: number[]) {
+  async findByIds(ids: number[], storeId?: number) {
     try {
+      const where: Prisma.ProductWhereInput = { id: { in: ids } };
+      if (storeId) {
+        where.userId = storeId;
+      }
       return await this.prisma.product.findMany({
-        where: { id: { in: ids } },
+        where,
         include: {
           images: {
             where: { sortOrder: 0 },
@@ -101,6 +105,69 @@ export class ProductsRepository {
       });
     } catch (e) {
       console.error('PRISMA FINDBYIDS ERROR:', e);
+      throw e;
+    }
+  }
+
+  async searchByPrice(params: {
+    storeId: number;
+    minPrice?: number;
+    maxPrice?: number;
+    keyword?: string;
+    sortByPrice?: 'asc' | 'desc';
+    limit?: number;
+  }) {
+    try {
+      const where: Prisma.ProductWhereInput = {
+        userId: params.storeId,
+        status: 'ACTIVE',
+      };
+
+      // Price filter
+      if (params.minPrice !== undefined || params.maxPrice !== undefined) {
+        where.price = {};
+        if (params.minPrice !== undefined) {
+          where.price.gte = params.minPrice;
+        }
+        if (params.maxPrice !== undefined) {
+          where.price.lte = params.maxPrice;
+        }
+      }
+
+      // Keyword filter
+      if (params.keyword) {
+        where.OR = [
+          {
+            name: {
+              contains: params.keyword,
+              mode: 'insensitive' as const,
+            },
+          },
+          {
+            description: {
+              contains: params.keyword,
+              mode: 'insensitive' as const,
+            },
+          },
+        ];
+      }
+
+      return await this.prisma.product.findMany({
+        where,
+        include: {
+          images: {
+            where: { sortOrder: 0 },
+            take: 1,
+          },
+          user: { include: { category: true } },
+        },
+        orderBy: params.sortByPrice
+          ? { price: params.sortByPrice }
+          : { price: 'asc' },
+        take: params.limit || 5,
+      });
+    } catch (e) {
+      console.error('PRISMA SEARCHBYPRICE ERROR:', e);
       throw e;
     }
   }

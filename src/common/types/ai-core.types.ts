@@ -13,6 +13,7 @@ export interface AiCoreMessage {
 export interface AiCoreInternalChatPayload {
   conversation_id: string;
   user_id?: string;
+  store_id?: string;
   recent_messages: AiCoreMessage[];
   current_message: AiCoreMessage;
   extra_state?: Record<string, any>;

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
@@ -203,20 +207,38 @@ export class ProductsService {
     };
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, storeId?: number) {
     const product = await this.products.findById(id);
     if (!product) throw new NotFoundException('Product not found');
+
+    // Ensure the product belongs to the requested store
+    if (storeId && product.userId !== storeId) {
+      throw new NotFoundException('Product not found in this store');
+    }
+
     return this.toResponse(product);
   }
 
-  async findByIds(ids: number[]) {
+  async findByIds(ids: number[], storeId?: number) {
     if (!ids || ids.length === 0) return [];
-    const products = await this.products.findByIds(ids);
+    const products = await this.products.findByIds(ids, storeId);
     return products.map((p) => this.toResponse(p));
   }
 
-  async syncProduct(id: number) {
-    const product = await this.findOne(id);
+  async searchByPrice(params: {
+    storeId: number;
+    minPrice?: number;
+    maxPrice?: number;
+    keyword?: string;
+    sortByPrice?: 'asc' | 'desc';
+    limit?: number;
+  }) {
+    const products = await this.products.searchByPrice(params);
+    return products.map((p) => this.toResponse(p));
+  }
+
+  async syncProduct(id: number, userId: number) {
+    const product = await this.findOne(id, userId);
     await this.updateEmbeddingStatus(id, ProductEmbeddingStatus.PENDING);
     this.triggerAiCoreSync(product);
     return { success: true, message: 'Sync triggered' };
@@ -309,10 +331,11 @@ export class ProductsService {
 
   async update(
     id: number,
+    userId: number,
     dto: UpdateProductDto,
     images: Express.Multer.File[],
   ) {
-    const oldProduct = await this.findOne(id);
+    const oldProduct = await this.findOne(id, userId);
 
     // Calculate changed fields
     const changedFields: string[] = [];
@@ -415,7 +438,11 @@ export class ProductsService {
     return { success: true };
   }
 
-  async removeMany(ids: number[]) {
+  async removeMany(ids: number[], userId: number) {
+    const products = await this.findByIds(ids);
+    if (products.some((p) => p.userId !== userId)) {
+      throw new UnauthorizedException('Some products do not belong to you');
+    }
     await this.products.removeMany(ids);
     this.triggerAiCoreDelete(ids);
     return { ids };
